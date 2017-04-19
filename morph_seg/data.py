@@ -21,7 +21,7 @@ class DataSet(object):
             if not line.strip():
                 continue
             enc, dec = line.rstrip('\n').split('\t')
-            if length_limit > 0 and len(enc) > length_limit:
+            if length_limit > 0 and (len(enc) > length_limit or len(dec) > length_limit):
                 continue
             if (enc, dec) in self.raw_samples:
                 continue
