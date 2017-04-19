@@ -63,46 +63,64 @@ class SimpleSeq2seq(object):
         self.train_op = optimizer.minimize(self.loss)
 
     def train_and_test(self, dataset, batch_size, epochs=1000, patience=10):
-        early_cnt = patience
-        prev_val_loss = 100
+        self.prev_val_loss = -10
         self.result['patience'] = patience
         self.result['val_loss_th'] = 1e-2
         with tf.Session() as sess:
             start = datetime.now()
             sess.run(tf.global_variables_initializer())
-            losses = []
             for i in range(epochs):
-                batch_enc, batch_dec = dataset.get_batch(batch_size)
-                feed_dict = self.populate_feed_dict(batch_enc, batch_dec)
-                feed_dict[self.feed_previous] = False
-                _, loss = sess.run([self.train_op, self.loss], feed_dict=feed_dict)
-                losses.append(loss)
-                feed_dict = self.populate_feed_dict(dataset.data_enc_valid,
-                                                   dataset.data_dec_valid)
-                feed_dict[self.feed_previous] = True
-                _, val_loss = sess.run([self.dec_out, self.loss], feed_dict=feed_dict)
-                if i % 100 == 99:
-                    print('Iter {}, loss: {}, val_loss: {}'.format(
-                        i+1, loss, val_loss))
-                if abs(val_loss - prev_val_loss) < self.result['val_loss_th']:
-                    early_cnt -= 1
-                    if early_cnt == 0:
-                        print('Early stopping at iter: {}, train_loss: {},'
-                              'val_loss: {}'.format(i+1, loss, val_loss))
-                        break
-                else:
-                    early_cnt = patience
-                prev_val_loss = val_loss
-            test_enc = dataset.data_enc_test
-            test_dec = dataset.data_dec_test
-            feed_dict = self.populate_feed_dict(test_enc, test_dec)
-            feed_dict[self.feed_previous] = True
-            test_out, loss = sess.run([self.dec_out, self.loss], feed_dict=feed_dict)
-            self.result['train_loss'] = losses[-1]
-            self.result['test_loss'] = loss
-            self.result['val_loss'] = val_loss
+                self.run_train_step(sess, dataset, batch_size)
+                self.run_validation(sess, dataset)
+                if self.do_early_stopping():
+                    break
+            self.run_test(sess, dataset)
             self.result['epochs_run'] = i+1
             self.result['running_time'] = (datetime.now() - start).total_seconds()
+
+    def do_early_stopping(self):
+        try:
+            self.prev_val_loss
+        except AttributeError:
+            self.prev_val_loss = -10
+            self.early_cnt = self.result['patience']
+        do_stop = False
+        if abs(self.result['val_loss'] - self.prev_val_loss) < self.result['val_loss_th']:
+            self.early_cnt -= 1
+            if self.early_cnt == 0:
+                do_stop = True
+        else:
+            self.early_cnt = self.result['patience']
+        self.prev_val_loss = self.result['val_loss']
+        return do_stop
+
+    def run_train_step(self, sess, dataset, batch_size):
+        batch_enc, batch_dec = dataset.get_batch(batch_size)
+        feed_dict = self.populate_feed_dict(batch_enc, batch_dec)
+        feed_dict[self.feed_previous] = False
+        _, train_loss = sess.run([self.train_op, self.loss], feed_dict=feed_dict)
+        self.result['train_loss'] = train_loss
+
+    def run_validation(self, sess, dataset):
+        feed_dict = self.populate_feed_dict(dataset.data_enc_valid,
+                                           dataset.data_dec_valid)
+        feed_dict[self.feed_previous] = True
+        _, val_loss = sess.run([self.dec_out, self.loss], feed_dict=feed_dict)
+        self.result['val_loss'] = val_loss
+
+    def run_test(self, sess, dataset, save_output_fn=None):
+        test_enc = dataset.data_enc_test
+        test_dec = dataset.data_dec_test
+        feed_dict = self.populate_feed_dict(test_enc, test_dec)
+        feed_dict[self.feed_previous] = True
+        test_out, test_loss = sess.run([self.dec_out, self.loss], feed_dict=feed_dict)
+        self.result['test_loss'] = test_loss
+
+        if save_output_fn is not None:
+            inv_vocab = {v: k for k, v in dataset.vocab_dec.items()}
+            with open(save_output_fn, 'w') as f:
+                for si in range(test_out[0].shape[0]):
+                    f.write(''.join(inv_vocab[step[si].argmax()][0] for step in test_out) + '\n')
 
     def populate_feed_dict(self, batch_enc, batch_dec):
         feed_dict = {}
