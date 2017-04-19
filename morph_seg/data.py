@@ -15,11 +15,14 @@ class DataSet(object):
         self.samples = []
         self.raw_samples = set()
 
-    def read_data_from_stream(self, stream, delimiter='', limit=0):
+    def read_data_from_stream(self, stream, delimiter='', limit=0, length_limit=0):
+        self.length_limit = length_limit
         for line in stream:
             if not line.strip():
                 continue
             enc, dec = line.rstrip('\n').split('\t')
+            if length_limit > 0 and len(enc) > length_limit:
+                continue
             if (enc, dec) in self.raw_samples:
                 continue
             self.raw_samples.add((enc, dec))
@@ -71,6 +74,7 @@ class DataSet(object):
 
     def to_dict(self):
         d = {
+            'length_limit': self.length_limit,
             'enc_shape': self.data_enc.shape,
             'dec_shape': self.data_dec.shape,
             'train_enc_shape': self.data_enc_train.shape,
