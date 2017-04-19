@@ -16,7 +16,7 @@ from model import SimpleSeq2seq
 class Seq2seqExperiment(object):
     default_ranges = {
         'cell_type': ('LSTM', 'GRU'),
-        'cell_size': (16, 32, 64, 128, 256, 512, 1024, 2048, 4096),
+        'cell_size': (16, 32, 64, 128, 256, 512),
         'embedding_size': tuple(range(1, 30)),
     }
     def __init__(self, dataset, result_fn, custom_pranges=None):
@@ -31,6 +31,7 @@ class Seq2seqExperiment(object):
                                    conf['embedding_size'])
         self.model.create_model(self.dataset)
         self.conf = conf
+        print(conf)
         
     def to_dict(self):
         d = {}
