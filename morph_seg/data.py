@@ -67,7 +67,9 @@ class DataSet(object):
         self.data_dec_valid = self.data_dec[valid_mask]
 
     def get_batch(self, batch_size):
-        if self.data_enc is None:
+        try:
+            self.data_enc
+        except AttributeError:
             self.vectorize_samples()
         indices = np.random.choice(self.data_enc_train.shape[0], batch_size)
         return self.data_enc_train[indices], self.data_dec_train[indices]
