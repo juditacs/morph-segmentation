@@ -19,14 +19,19 @@ class Seq2seqExperiment(object):
         'cell_size': (16, 32, 64, 128, 256, 512),
         'embedding_size': tuple(range(1, 30)),
     }
-    def __init__(self, dataset, result_fn, custom_pranges=None):
+    def __init__(self, dataset, result_fn, conf=None, custom_pranges=None):
         self.dataset = dataset
         self.result_fn = result_fn
         self.custom_pranges = custom_pranges
         self.result = {}
+        self.conf = conf
+        self.generate_random_config = conf is None
 
     def create_model(self):
-        conf = Seq2seqExperiment.generate_config(self.custom_pranges)
+        if self.generate_random_config is True:
+            conf = Seq2seqExperiment.generate_config(self.custom_pranges)
+        else:
+            conf = self.conf
         self.model = SimpleSeq2seq(conf['cell_type'], conf['cell_size'],
                                    conf['embedding_size'])
         self.model.create_model(self.dataset)
@@ -43,11 +48,13 @@ class Seq2seqExperiment(object):
             d['data.{}'.format(param)] = val
         return d
 
-    def run(self, save=True):
+    def run(self, save=True, save_output_fn=None):
         self.create_model()
         self.model.train_and_test(self.dataset, batch_size=1000)
         if save:
             self.save()
+        if save_output_fn is not None:
+            self.model.save_test_output(save_output_fn)
 
     def save(self):
         d = self.to_dict()
@@ -69,5 +76,11 @@ class Seq2seqExperiment(object):
         for param, prange in r.items():
             conf[param] = random.choice(prange)
         return conf
+
+    def save_train_output(self, stream):
+        self.model.save_train_output(stream)
+
+    def save_test_output(self, stream):
+        self.model.save_test_output(stream)
 
 

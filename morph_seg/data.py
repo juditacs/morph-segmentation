@@ -44,11 +44,11 @@ class DataSet(object):
             data_enc.append(
                 [self.vocab_enc.setdefault(c, len(self.vocab_enc)) for c in padded]
             )
-            padded = ['GO'] + dec + ['PAD' for p in range(self.maxlen_dec - len(dec))]
+            padded = ['GO'] + dec + ['PAD' for p in range(self.maxlen_dec - len(dec))] + ['STOP']
             data_dec.append(
                 [self.vocab_dec.setdefault(c, len(self.vocab_dec)) for c in padded]
             )
-        self.maxlen_dec += 1
+        self.maxlen_dec += 2
         self.data_enc = np.array(data_enc)
         self.data_dec = np.array(data_dec)
 

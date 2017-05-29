@@ -43,7 +43,7 @@ class SimpleSeq2seq(object):
         self.feed_previous = tf.placeholder(tf.bool)
 
     def initialize_seq2seq(self, dataset):
-        do, dm = tf.contrib.legacy_seq2seq.embedding_rnn_seq2seq(
+        do, dm = tf.contrib.legacy_seq2seq.embedding_attention_seq2seq(
             self.enc_inp, self.dec_inp,
             cell=self.cell,
             num_encoder_symbols=len(dataset.vocab_enc),
@@ -77,6 +77,7 @@ class SimpleSeq2seq(object):
             self.run_test(sess, dataset)
             self.result['epochs_run'] = i+1
             self.result['running_time'] = (datetime.now() - start).total_seconds()
+            self.run_train_as_test(sess, dataset)
 
     def do_early_stopping(self):
         try:
@@ -98,7 +99,7 @@ class SimpleSeq2seq(object):
         batch_enc, batch_dec = dataset.get_batch(batch_size)
         feed_dict = self.populate_feed_dict(batch_enc, batch_dec)
         feed_dict[self.feed_previous] = False
-        _, train_loss = sess.run([self.train_op, self.loss], feed_dict=feed_dict)
+        train_out, train_loss = sess.run([self.train_op, self.loss], feed_dict=feed_dict)
         self.result['train_loss'] = train_loss
 
     def run_validation(self, sess, dataset):
@@ -116,11 +117,26 @@ class SimpleSeq2seq(object):
         test_out, test_loss = sess.run([self.dec_out, self.loss], feed_dict=feed_dict)
         self.result['test_loss'] = test_loss
 
-        if save_output_fn is not None:
-            inv_vocab = {v: k for k, v in dataset.vocab_dec.items()}
-            with open(save_output_fn, 'w') as f:
-                for si in range(test_out[0].shape[0]):
-                    f.write(''.join(inv_vocab[step[si].argmax()][0] for step in test_out) + '\n')
+        self.test_out = test_out
+        self.dataset = dataset
+
+    def run_train_as_test(self, sess, dataset):
+        train_enc = dataset.data_enc_train
+        train_dec = dataset.data_dec_train
+        feed_dict = self.populate_feed_dict(train_enc, train_dec)
+        feed_dict[self.feed_previous] = True
+        train_out, train_loss = sess.run([self.dec_out, self.loss], feed_dict=feed_dict)
+        self.train_out = train_out
+
+    def save_test_output(self, stream):
+        inv_vocab = {v: k for k, v in self.dataset.vocab_dec.items()}
+        for si in range(self.test_out[0].shape[0]):
+            stream.write(''.join(inv_vocab[step[si].argmax()][0] for step in self.test_out) + '\n')
+
+    def save_train_output(self, stream):
+        inv_vocab = {v: k for k, v in self.dataset.vocab_dec.items()}
+        for si in range(self.train_out[0].shape[0]):
+            stream.write(''.join(inv_vocab[step[si].argmax()][0] for step in self.train_out) + '\n')
 
     def populate_feed_dict(self, batch_enc, batch_dec):
         feed_dict = {}
