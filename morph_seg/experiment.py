@@ -36,7 +36,6 @@ class Seq2seqExperiment(object):
                                    conf['embedding_size'])
         self.model.create_model(self.dataset)
         self.conf = conf
-        print(conf)
         
     def to_dict(self):
         d = {}
