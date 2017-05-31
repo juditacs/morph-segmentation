@@ -27,13 +27,14 @@ def parse_args():
 def main():
     args = parse_args()
     data = DataSet()
-    data.read_data_from_stream(stdin, limit=200000,
+    data.read_data_from_stream(stdin, limit=50000,
                                length_limit=args.length_limit)
     data.vectorize_samples()
     data.split_train_valid_test()
     for n in range(args.n):
         print('EXPERIMENT {}'.format(n+1))
         exp = Seq2seqExperiment(data, args.result_file)
+        print(exp.conf)
         exp.run()
 
 if __name__ == '__main__':
