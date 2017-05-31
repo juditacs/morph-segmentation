@@ -75,8 +75,11 @@ class SimpleSeq2seq(object):
             self.enc_inp, self.dec_inp, targets, self.target_weights, self.buckets,
             lambda x, y: seq2seq_f(x, y, False)
         )
-        optimizer = tf.train.MomentumOptimizer(0.05, 0.9)
-        self.train_ops = [optimizer.minimize(l) for l in self.loss]
+
+        def create_optimizer():
+            return tf.train.MomentumOptimizer(0.05, 0.9)
+
+        self.train_ops = [create_optimizer().minimize(l) for l in self.loss]
 
     def train_and_test(self, dataset, batch_size, epochs=10000, patience=10):
         self.prev_val_loss = -10
