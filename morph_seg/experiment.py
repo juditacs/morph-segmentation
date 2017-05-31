@@ -26,6 +26,7 @@ class Seq2seqExperiment(object):
         self.result = {}
         self.conf = conf
         self.generate_random_config = conf is None
+        self.create_model()
 
     def create_model(self):
         if self.generate_random_config is True:
@@ -48,7 +49,6 @@ class Seq2seqExperiment(object):
         return d
 
     def run(self, save=True, save_output_fn=None):
-        self.create_model()
         self.model.train_and_test(self.dataset, batch_size=1000)
         if save:
             self.save()
