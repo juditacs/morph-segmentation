@@ -56,15 +56,15 @@ class DataSet(object):
         rand_indices = np.random.random(self.data_enc.shape[0])
         train_th = 1.0 - valid_ratio - test_ratio
         valid_th = 1.0 - test_ratio
-        train_mask = rand_indices <= train_th
-        valid_mask = (rand_indices > train_th) & (rand_indices <= valid_th)
-        test_mask = (rand_indices > valid_th)
-        self.data_enc_test = self.data_enc[test_mask]
-        self.data_dec_test = self.data_dec[test_mask]
-        self.data_enc_train = self.data_enc[train_mask]
-        self.data_dec_train = self.data_dec[train_mask]
-        self.data_enc_valid = self.data_enc[valid_mask]
-        self.data_dec_valid = self.data_dec[valid_mask]
+        self.train_mask = rand_indices <= train_th
+        self.valid_mask = (rand_indices > train_th) & (rand_indices <= valid_th)
+        self.test_mask = (rand_indices > valid_th)
+        self.data_enc_test = self.data_enc[self.test_mask]
+        self.data_dec_test = self.data_dec[self.test_mask]
+        self.data_enc_train = self.data_enc[self.train_mask]
+        self.data_dec_train = self.data_dec[self.train_mask]
+        self.data_enc_valid = self.data_enc[self.valid_mask]
+        self.data_dec_valid = self.data_dec[self.valid_mask]
 
     def get_batch(self, batch_size):
         try:
@@ -91,3 +91,15 @@ class DataSet(object):
         classes = dict(zip(map(inv_vocab.get, labels), counts))
         d['label_counts'] = classes
         return d
+
+    def get_train_samples(self):
+        train_idx = [i for i in range(self.train_mask.shape[0]) if self.train_mask[i]]
+        return [''.join(self.samples[t][1]) for t in train_idx]
+
+    def get_valid_samples(self):
+        valid_idx = [i for i in range(self.valid_mask.shape[0]) if self.valid_mask[i]]
+        return [''.join(self.samples[t][1]) for t in valid_idx]
+
+    def get_test_samples(self):
+        test_idx = [i for i in range(self.test_mask.shape[0]) if self.test_mask[i]]
+        return [''.join(self.samples[t][1]) for t in test_idx]
