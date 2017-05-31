@@ -36,6 +36,7 @@ def main():
         exp = Seq2seqExperiment(data, args.result_file)
         print(exp.conf)
         exp.run()
+        print(exp.model.result['test_loss'][-1])
 
 if __name__ == '__main__':
     main()
