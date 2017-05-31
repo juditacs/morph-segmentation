@@ -83,6 +83,7 @@ class SimpleSeq2seq(object):
 
     def train_and_test(self, dataset, batch_size, epochs=10000, patience=10):
         self.result['train_loss'] = [] 
+        self.result['test_loss'] = [] 
         self.result['val_loss'] = [] 
         self.prev_val_loss = -10
         self.result['patience'] = patience
@@ -97,7 +98,7 @@ class SimpleSeq2seq(object):
                 if self.do_early_stopping():
                     logging.info('Early stopping at iteration {}'.format(i+1))
                     break
-            self.run_test(sess, dataset)
+                self.run_test(sess, dataset)
             self.result['epochs_run'] = i+1
             self.result['running_time'] = (datetime.now() - start).total_seconds()
             self.run_train_as_test(sess, dataset)
@@ -118,8 +119,8 @@ class SimpleSeq2seq(object):
         batch_enc, batch_dec = dataset.get_batch(batch_size)
         feed_dict = self.populate_feed_dict(batch_enc, batch_dec)
         feed_dict[self.feed_previous] = True
-        _, loss = sess.run([self.train_ops, self.loss], feed_dict=feed_dict)
-        self.result['train_loss'].append(loss)
+        _, train_loss = sess.run([self.train_ops, self.loss], feed_dict=feed_dict)
+        self.result['train_loss'].append(sum(train_loss))
 
     def run_validation(self, sess, dataset, iter_no=None):
         feed_dict = self.populate_feed_dict(dataset.data_enc_valid,
@@ -136,7 +137,7 @@ class SimpleSeq2seq(object):
         feed_dict = self.populate_feed_dict(test_enc, test_dec)
         feed_dict[self.feed_previous] = True
         test_out, test_loss = sess.run([self.outputs, self.loss], feed_dict=feed_dict)
-        self.result['test_loss'] = sum(test_loss)
+        self.result['test_loss'].append(sum(test_loss))
 
         self.test_out = test_out
         self.dataset = dataset
