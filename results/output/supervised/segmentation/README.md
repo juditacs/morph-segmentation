@@ -4,7 +4,7 @@ This is the best parameter configuration so far.
 
 ## Command
 
-   zcat $ULM_DIR/ulm/dat/webcorp/webcorp.100M.segmented.normalized2.gz | head -1000000 |  python run_experiment.py -l 20 --embedding-size 27 --save-test-output out2 --cell-size 256 --cell-type GRU --early-stopping-threshold 1e-4
+    zcat $ULM_DIR/ulm/dat/webcorp/webcorp.100M.segmented.normalized2.gz | head -1000000 |  python run_experiment.py -l 20 --embedding-size 27 --save-test-output out2 --cell-size 256 --cell-type GRU --early-stopping-threshold 1e-4
 
 ### Explanation
 
