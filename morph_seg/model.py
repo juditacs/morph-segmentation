@@ -157,7 +157,9 @@ class SimpleSeq2seq(object):
 
     def save_test_output(self, stream):
         self.decode_test()
-        stream.write('\n'.join(self.decoded))
+        stream.write('\n'.join('{0}\t{1}'.format(gold, output)
+                               for gold, output in zip(
+                                   self.dataset.get_test_samples(), self.decoded)))
 
     def decode_test(self, replace_pad=True):
         inv_vocab = {v: k for k, v in self.dataset.vocab_dec.items()}
@@ -169,9 +171,9 @@ class SimpleSeq2seq(object):
         for row in indices:
             dec = ''.join(inv_vocab[r] for r in row)
             if replace_pad:
-                decoded.append(dec.replace('PAD', ' ').strip())
-            else:
-                decoded.append(dec)
+                dec = dec.replace('PAD', ' ').strip()
+                dec = dec.replace('STOP', ' ').strip()
+            decoded.append(dec)
         self.decoded = decoded
 
     def save_train_output(self, stream):
