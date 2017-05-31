@@ -82,6 +82,7 @@ class SimpleSeq2seq(object):
         self.train_ops = [create_optimizer().minimize(l) for l in self.loss]
 
     def train_and_test(self, dataset, batch_size, epochs=10000, patience=10):
+        self.result['train_loss'] = [] 
         self.result['val_loss'] = [] 
         self.prev_val_loss = -10
         self.result['patience'] = patience
@@ -117,7 +118,8 @@ class SimpleSeq2seq(object):
         batch_enc, batch_dec = dataset.get_batch(batch_size)
         feed_dict = self.populate_feed_dict(batch_enc, batch_dec)
         feed_dict[self.feed_previous] = True
-        sess.run([self.train_ops, self.loss], feed_dict=feed_dict)
+        _, loss = sess.run([self.train_ops, self.loss], feed_dict=feed_dict)
+        self.result['train_loss'].append(loss)
 
     def run_validation(self, sess, dataset, iter_no=None):
         feed_dict = self.populate_feed_dict(dataset.data_enc_valid,
