@@ -23,6 +23,8 @@ def parse_args():
                    default='LSTM')
     p.add_argument('--cell-size', type=int, default=16)
     p.add_argument('--embedding-size', type=int, default=20)
+    p.add_argument('--early-stopping-patience', type=int, default=10)
+    p.add_argument('--early-stopping-threshold', type=float, default=1e-3)
     p.add_argument('--save-test-output', dest='test_output', type=str, default=None)
     return p.parse_args()
 
@@ -30,7 +32,7 @@ def parse_args():
 def main():
     args = parse_args()
     data = DataSet()
-    data.read_data_from_stream(stdin, limit=200000,
+    data.read_data_from_stream(stdin, limit=50000,
                                length_limit=args.length_limit)
     data.vectorize_samples()
     data.split_train_valid_test()
@@ -39,6 +41,8 @@ def main():
         'cell_type': args.cell_type,
         'cell_size': args.cell_size,
         'embedding_size': args.embedding_size,
+        'patience': args.early_stopping_patience,
+        'val_loss_th': args.early_stopping_threshold,
     }
     exp = Seq2seqExperiment(data, args.result_file, conf=conf)
     exp.run(save=False)

@@ -27,7 +27,6 @@ class SimpleSeq2seq(object):
 
     def create_model(self, dataset):
         self.create_placeholders(dataset)
-        #self.initialize_seq2seq(dataset)
         self.create_train_ops(dataset)
 
     def create_placeholders(self, dataset):
@@ -81,13 +80,13 @@ class SimpleSeq2seq(object):
 
         self.train_ops = [create_optimizer().minimize(l) for l in self.loss]
 
-    def train_and_test(self, dataset, batch_size, epochs=10000, patience=10):
+    def train_and_test(self, dataset, batch_size, epochs=10000, patience=5, val_loss_th=1e-4):
         self.result['train_loss'] = [] 
         self.result['test_loss'] = [] 
         self.result['val_loss'] = [] 
         self.prev_val_loss = -10
         self.result['patience'] = patience
-        self.result['val_loss_th'] = 1e-2
+        self.result['val_loss_th'] = val_loss_th
         self.early_cnt = patience
         with tf.Session() as sess:
             start = datetime.now()
@@ -98,7 +97,10 @@ class SimpleSeq2seq(object):
                 if self.do_early_stopping():
                     logging.info('Early stopping at iteration {}'.format(i+1))
                     break
-                self.run_test(sess, dataset)
+            else:
+                logging.info('Training completed without early stopping. '
+                             'Iterations run: {}'.format(epochs))
+            self.run_test(sess, dataset)
             self.result['epochs_run'] = i+1
             self.result['running_time'] = (datetime.now() - start).total_seconds()
             self.run_train_as_test(sess, dataset)
@@ -107,12 +109,15 @@ class SimpleSeq2seq(object):
         if len(self.result['val_loss']) < self.result['patience']:
             return False
         do_stop = False
-        if abs(self.result['val_loss'][-1] - self.result['val_loss'][-2]) < self.result['val_loss_th']:
-            self.early_cnt -= 1
-            if self.early_cnt == 0:
-                do_stop = True
-        else:
-            self.early_cnt = self.result['patience']
+        try:
+            if abs(self.result['val_loss'][-1] - self.result['val_loss'][-2]) < self.result['val_loss_th']:
+                self.early_cnt -= 1
+                if self.early_cnt == 0:
+                    do_stop = True
+            else:
+                self.early_cnt = self.result['patience']
+        except IndexError:
+            pass
         return do_stop
 
     def run_train_step(self, sess, dataset, batch_size):

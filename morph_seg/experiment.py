@@ -17,7 +17,13 @@ class Seq2seqExperiment(object):
     default_ranges = {
         'cell_type': ('LSTM', 'GRU'),
         'cell_size': (16, 32, 64, 128, 256, 512),
-        'embedding_size': tuple(range(1, 30)),
+        'embedding_size': [i*5 for i in range(1, 11)],
+        'patience': (1, 5, 10),
+        'val_loss_th': (1e-2, 1e-3, 1e-4),
+    }
+    defaults = {
+        'patience': 10,
+        'val_loss_th': 1e-2,
     }
     def __init__(self, dataset, result_fn, conf=None, custom_pranges=None):
         self.dataset = dataset
@@ -27,6 +33,8 @@ class Seq2seqExperiment(object):
         self.conf = conf
         self.generate_random_config = conf is None
         self.create_model()
+        for param, val in Seq2seqExperiment.defaults.items():
+            self.conf.setdefault(param, val)
 
     def create_model(self):
         if self.generate_random_config is True:
@@ -49,7 +57,9 @@ class Seq2seqExperiment(object):
         return d
 
     def run(self, save=True, save_output_fn=None):
-        self.model.train_and_test(self.dataset, batch_size=1000)
+        self.model.train_and_test(self.dataset, batch_size=1000,
+                                 patience=self.conf['patience'],
+                                 val_loss_th=self.conf['val_loss_th'])
         if save:
             self.save()
         if save_output_fn is not None:
