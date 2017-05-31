@@ -82,9 +82,11 @@ class SimpleSeq2seq(object):
         self.train_ops = [create_optimizer().minimize(l) for l in self.loss]
 
     def train_and_test(self, dataset, batch_size, epochs=10000, patience=10):
+        self.result['val_loss'] = [] 
         self.prev_val_loss = -10
         self.result['patience'] = patience
-        self.result['val_loss_th'] = 1e-3
+        self.result['val_loss_th'] = 1e-2
+        self.early_cnt = patience
         with tf.Session() as sess:
             start = datetime.now()
             sess.run(tf.global_variables_initializer())
@@ -100,19 +102,15 @@ class SimpleSeq2seq(object):
             self.run_train_as_test(sess, dataset)
 
     def do_early_stopping(self):
-        try:
-            self.prev_val_loss
-        except AttributeError:
-            self.prev_val_loss = -10
-            self.early_cnt = self.result['patience']
+        if len(self.result['val_loss']) < self.result['patience']:
+            return False
         do_stop = False
-        if abs(self.result['val_loss'] - self.prev_val_loss) < self.result['val_loss_th']:
+        if abs(self.result['val_loss'][-1] - self.result['val_loss'][-2]) < self.result['val_loss_th']:
             self.early_cnt -= 1
             if self.early_cnt == 0:
                 do_stop = True
         else:
             self.early_cnt = self.result['patience']
-        self.prev_val_loss = self.result['val_loss']
         return do_stop
 
     def run_train_step(self, sess, dataset, batch_size):
@@ -120,17 +118,15 @@ class SimpleSeq2seq(object):
         feed_dict = self.populate_feed_dict(batch_enc, batch_dec)
         feed_dict[self.feed_previous] = True
         sess.run([self.train_ops, self.loss], feed_dict=feed_dict)
-        #train_out, train_loss = sess.run([self.train_op, self.loss], feed_dict=feed_dict)
-        #self.result['train_loss'] = train_loss
 
     def run_validation(self, sess, dataset, iter_no=None):
         feed_dict = self.populate_feed_dict(dataset.data_enc_valid,
                                            dataset.data_dec_valid)
         feed_dict[self.feed_previous] = True
         val_loss = sess.run(self.loss, feed_dict=feed_dict)
-        if iter_no is not None and iter_no % 1000 == 999:
+        if iter_no is not None and iter_no % 100 == 99:
             logging.info('Iter {}, validation loss: {}'.format(iter_no+1, val_loss))
-        self.result['val_loss'] = val_loss[0]  #FIXME first bucket loss is saved only
+        self.result['val_loss'].append(sum(val_loss))
 
     def run_test(self, sess, dataset, save_output_fn=None):
         test_enc = dataset.data_enc_test
@@ -138,7 +134,7 @@ class SimpleSeq2seq(object):
         feed_dict = self.populate_feed_dict(test_enc, test_dec)
         feed_dict[self.feed_previous] = True
         test_out, test_loss = sess.run([self.outputs, self.loss], feed_dict=feed_dict)
-        self.result['test_loss'] = test_loss[0]
+        self.result['test_loss'] = sum(test_loss)
 
         self.test_out = test_out
         self.dataset = dataset
