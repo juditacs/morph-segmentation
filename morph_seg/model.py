@@ -18,7 +18,6 @@ class SimpleSeq2seq(object):
         self.embedding_size = embedding_size
         self.result = {}
         tf.reset_default_graph()
-        self.buckets = [(10, 10), ]
 
     def init_cell(self, cell_type, cell_size):
         if cell_type == 'LSTM':
@@ -32,6 +31,7 @@ class SimpleSeq2seq(object):
         self.create_train_ops(dataset)
 
     def create_placeholders(self, dataset):
+        self.buckets = [(dataset.maxlen_enc, dataset.maxlen_dec-1)]
         self.enc_inp = [
             tf.placeholder(tf.int32, shape=[None], name='enc{}'.format(i))
                            for i in range(dataset.maxlen_enc)
