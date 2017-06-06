@@ -25,6 +25,7 @@ def parse_args():
     p.add_argument('--embedding-size', type=int, default=20)
     p.add_argument('--early-stopping-patience', type=int, default=10)
     p.add_argument('--early-stopping-threshold', type=float, default=1e-3)
+    p.add_argument('--layers', type=int, default=1)
     p.add_argument('--save-test-output', dest='test_output', type=str, default=None)
     return p.parse_args()
 
@@ -46,6 +47,7 @@ def main():
     }
     exp = Seq2seqExperiment(data, args.result_file, conf=conf)
     exp.run(save=False)
+    logging.info('Test loss: {}'.format(exp.model.result['test_loss'][-1]))
     if args.test_output is None:
         exp.save_test_output(stdout)
     else:
