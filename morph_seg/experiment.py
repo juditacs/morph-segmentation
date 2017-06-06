@@ -20,10 +20,12 @@ class Seq2seqExperiment(object):
         'embedding_size': [i*5 for i in range(1, 11)],
         'patience': (1, 5, 10),
         'val_loss_th': (1e-2, 1e-3, 1e-4),
+        'layers': [1, 2, 3],
     }
     defaults = {
         'patience': 10,
         'val_loss_th': 1e-2,
+        'layers': 1,
     }
     def __init__(self, dataset, result_fn, conf=None, custom_pranges=None):
         self.dataset = dataset
@@ -41,8 +43,7 @@ class Seq2seqExperiment(object):
             conf = Seq2seqExperiment.generate_config(self.custom_pranges)
         else:
             conf = self.conf
-        self.model = SimpleSeq2seq(conf['cell_type'], conf['cell_size'],
-                                   conf['embedding_size'])
+        self.model = SimpleSeq2seq(**conf)
         self.model.create_model(self.dataset)
         self.conf = conf
         

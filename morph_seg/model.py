@@ -13,17 +13,27 @@ import tensorflow as tf
 
 
 class SimpleSeq2seq(object):
-    def __init__(self, cell_type, cell_size, embedding_size):
-        self.init_cell(cell_type, cell_size)
+    def __init__(self, cell_type, cell_size, embedding_size, layers=None, **kwargs):
+        self.init_cell(cell_type, cell_size, layers)
         self.embedding_size = embedding_size
         self.result = {}
         tf.reset_default_graph()
 
-    def init_cell(self, cell_type, cell_size):
-        if cell_type == 'LSTM':
-            self.cell = tf.contrib.rnn.BasicLSTMCell(cell_size)
-        elif cell_type == 'GRU':
-            self.cell = tf.contrib.rnn.GRUCell(cell_size)
+    def init_cell(self, cell_type, cell_size, layers=None):
+        if layers is None or layers == 1:
+            if cell_type == 'LSTM':
+                self.cell = tf.contrib.rnn.BasicLSTMCell(cell_size)
+            elif cell_type == 'GRU':
+                self.cell = tf.contrib.rnn.GRUCell(cell_size)
+        else:
+            if cell_type == 'LSTM':
+                self.cell = tf.contrib.rnn.MultiRNNCell(
+                    [tf.contrib.rnn.BasicLSTMCell(cell_size) for _ in range(layers)]
+                )
+            elif cell_type == 'GRU':
+                self.cell = tf.contrib.rnn.MultiRNNCell(
+                    [tf.contrib.rnn.GRUCell(cell_size) for _ in range(layers)]
+                )
 
     def create_model(self, dataset):
         self.create_placeholders(dataset)
@@ -80,7 +90,7 @@ class SimpleSeq2seq(object):
 
         self.train_ops = [create_optimizer().minimize(l) for l in self.loss]
 
-    def train_and_test(self, dataset, batch_size, epochs=10000, patience=5, val_loss_th=1e-4):
+    def train_and_test(self, dataset, batch_size, epochs=100000, patience=5, val_loss_th=1e-4):
         self.result['train_loss'] = [] 
         self.result['test_loss'] = [] 
         self.result['val_loss'] = [] 
@@ -95,7 +105,8 @@ class SimpleSeq2seq(object):
                 self.run_train_step(sess, dataset, batch_size)
                 self.run_validation(sess, dataset, i)
                 if self.do_early_stopping():
-                    logging.info('Early stopping at iteration {}'.format(i+1))
+                    logging.info('Early stopping at iteration {}, '
+                                 'valid loss: {}'.format(i+1, self.result['val_loss'][-1]))
                     break
             else:
                 logging.info('Training completed without early stopping. '
