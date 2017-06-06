@@ -32,11 +32,14 @@ def main():
     data.vectorize_samples()
     data.split_train_valid_test()
     for n in range(args.n):
-        print('EXPERIMENT {}'.format(n+1))
+        logging.info('EXPERIMENT {}'.format(n+1))
         exp = Seq2seqExperiment(data, args.result_file)
-        print(exp.conf)
+        logging.info(exp.conf)
         exp.run()
-        print(exp.model.result['test_loss'][-1])
+        logging.info('Test loss: {}'.format(exp.model.result['test_loss'][-1]))
 
 if __name__ == '__main__':
+    import logging
+    log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    logging.basicConfig(level=logging.INFO, format=log_fmt)
     main()
