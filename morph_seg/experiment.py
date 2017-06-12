@@ -90,7 +90,7 @@ class Seq2seqExperiment(object):
     def save_train_output(self, stream):
         self.model.save_train_output(stream)
 
-    def save_test_output(self, stream):
-        self.model.save_test_output(stream)
+    def save_test_output(self, stream, include_test_input=False):
+        self.model.save_test_output(stream, include_test_input=include_test_input)
 
 
