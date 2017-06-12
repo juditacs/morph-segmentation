@@ -18,13 +18,13 @@ class Seq2seqExperiment(object):
         'cell_type': ('LSTM', 'GRU'),
         'cell_size': (16, 32, 64, 128, 256, 512),
         'embedding_size': [i*5 for i in range(1, 11)],
-        'patience': (1, 5, 10),
-        'val_loss_th': (1e-2, 1e-3, 1e-4),
+        'patience': (5, 10),
+        'val_loss_th': (1e-3, 1e-4),
         'layers': [1, 2, 3],
     }
     defaults = {
         'patience': 10,
-        'val_loss_th': 1e-2,
+        'val_loss_th': 1e-3,
         'layers': 1,
     }
     def __init__(self, dataset, result_fn, conf=None, custom_pranges=None):
