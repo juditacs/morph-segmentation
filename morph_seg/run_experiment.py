@@ -7,7 +7,7 @@
 # Distributed under terms of the MIT license.
 
 from argparse import ArgumentParser
-from sys import stdin, stdout
+from sys import stdin
 
 from experiment import Seq2seqExperiment
 from data import DataSet
@@ -48,11 +48,9 @@ def main():
     exp = Seq2seqExperiment(data, args.result_file, conf=conf)
     exp.run(save=False)
     logging.info('Test loss: {}'.format(exp.model.result['test_loss'][-1]))
-    if args.test_output is None:
-        exp.save_test_output(stdout)
-    else:
+    if args.test_output is not None:
         with open(args.test_output, 'w') as f:
-            exp.save_test_output(f)
+            exp.save_test_output(f, include_test_input=True)
 
 if __name__ == '__main__':
     import logging
