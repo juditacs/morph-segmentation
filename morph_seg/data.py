@@ -100,6 +100,8 @@ class DataSet(object):
         valid_idx = [i for i in range(self.valid_mask.shape[0]) if self.valid_mask[i]]
         return [''.join(self.samples[t][1]) for t in valid_idx]
 
-    def get_test_samples(self):
+    def get_test_samples(self, include_test_input=False):
         test_idx = [i for i in range(self.test_mask.shape[0]) if self.test_mask[i]]
+        if include_test_input:
+            return [(''.join(self.samples[t][0]), ''.join(self.samples[t][1])) for t in test_idx]
         return [''.join(self.samples[t][1]) for t in test_idx]
