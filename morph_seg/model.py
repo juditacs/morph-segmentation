@@ -114,7 +114,7 @@ class SimpleSeq2seq(object):
             self.run_test(sess, dataset)
             self.result['epochs_run'] = i+1
             self.result['running_time'] = (datetime.now() - start).total_seconds()
-            self.run_train_as_test(sess, dataset)
+            # self.run_train_as_test(sess, dataset)
 
     def do_early_stopping(self):
         if len(self.result['val_loss']) < self.result['patience']:
@@ -143,7 +143,7 @@ class SimpleSeq2seq(object):
                                            dataset.data_dec_valid)
         feed_dict[self.feed_previous] = True
         val_loss = sess.run(self.loss, feed_dict=feed_dict)
-        if iter_no is not None and iter_no % 100 == 99:
+        if iter_no is not None and iter_no % 1000 == 999:
             logging.info('Iter {}, validation loss: {}'.format(iter_no+1, val_loss))
         self.result['val_loss'].append(sum(val_loss))
 
@@ -166,11 +166,17 @@ class SimpleSeq2seq(object):
         train_out, train_loss = sess.run([self.outputs, self.loss], feed_dict=feed_dict)
         self.train_out = train_out
 
-    def save_test_output(self, stream):
+    def save_test_output(self, stream,
+                         include_test_input=False):
         self.decode_test()
+        test_samples = self.dataset.get_test_samples(
+            include_test_input
+        )
+        if include_test_input:
+            test_samples = ['\t'.join(t) for t in test_samples]
         stream.write('\n'.join('{0}\t{1}'.format(gold, output)
                                for gold, output in zip(
-                                   self.dataset.get_test_samples(), self.decoded)))
+                                   test_samples, self.decoded)))
 
     def decode_test(self, replace_pad=True):
         inv_vocab = {v: k for k, v in self.dataset.vocab_dec.items()}
