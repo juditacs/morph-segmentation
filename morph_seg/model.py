@@ -158,9 +158,8 @@ class SimpleSeq2seq(object):
         self.test_out = test_out
         self.dataset = dataset
 
-    def run_train_as_test(self, sess, dataset):
-        train_enc = dataset.data_enc_train
-        train_dec = dataset.data_dec_train
+    def run_train_as_test(self, sess, dataset, batch_size=1024):
+        train_enc, train_dec = dataset.get_batch(batch_size)
         feed_dict = self.populate_feed_dict(train_enc, train_dec)
         feed_dict[self.feed_previous] = True
         train_out, train_loss = sess.run([self.outputs, self.loss], feed_dict=feed_dict)
