@@ -86,7 +86,7 @@ class SimpleSeq2seq(object):
         )
 
         def create_optimizer():
-            return tf.train.MomentumOptimizer(0.05, 0.9)
+            return tf.train.RMSPropOptimizer(0.01)
 
         self.train_ops = [create_optimizer().minimize(l) for l in self.loss]
 
