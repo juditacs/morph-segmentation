@@ -105,3 +105,13 @@ class DataSet(object):
         if include_test_input:
             return [(''.join(self.samples[t][0]), ''.join(self.samples[t][1])) for t in test_idx]
         return [''.join(self.samples[t][1]) for t in test_idx]
+
+    def save_vocabularies(self, fn):
+        enc_fn = '{}_enc.vocab'.format(fn)
+        with open(enc_fn, 'w') as f:
+            f.write('\n'.join('{}\t{}'.format(ch, id_)
+                              for ch, id_ in self.vocab_enc.items()))
+        dec_fn = '{}_dec.vocab'.format(fn)
+        with open(dec_fn, 'w') as f:
+            f.write('\n'.join('{}\t{}'.format(ch, id_)
+                              for ch, id_ in self.vocab_dec.items()))
