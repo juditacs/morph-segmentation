@@ -150,6 +150,7 @@ class SimpleSeq2seq(object):
     def run_test(self, sess, dataset, save_output_fn=None):
         test_enc = dataset.data_enc_test
         test_dec = dataset.data_dec_test
+        test_dec = np.zeros(test_dec.shape)
         feed_dict = self.populate_feed_dict(test_enc, test_dec)
         feed_dict[self.feed_previous] = True
         test_out, test_loss = sess.run([self.outputs, self.loss], feed_dict=feed_dict)
