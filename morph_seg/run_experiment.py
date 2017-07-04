@@ -38,7 +38,18 @@ def main():
                                length_limit=args.length_limit)
     data.vectorize_samples()
     data.split_train_valid_test()
-    logging.info(str(data.data_dec_test.shape))
+    logging.info("Train data shape: encoder - {}, decoder - {}".format(
+        data.data_enc_train.shape,
+        data.data_dec_train.shape,
+    ))
+    logging.info("Valid data shape: encoder - {}, decoder - {}".format(
+        data.data_enc_valid.shape,
+        data.data_dec_valid.shape,
+    ))
+    logging.info("Test data shape: encoder - {}, decoder - {}".format(
+        data.data_enc_test.shape,
+        data.data_dec_test.shape,
+    ))
     conf = {
         'cell_type': args.cell_type,
         'cell_size': args.cell_size,
@@ -47,6 +58,7 @@ def main():
         'val_loss_th': args.early_stopping_threshold,
     }
     exp = Seq2seqExperiment(data, args.result_file, conf=conf)
+    logging.info("Starting experiment")
     exp.run(save=False)
     logging.info('Test loss: {}'.format(exp.model.result['test_loss'][-1]))
     if args.test_output is not None:
