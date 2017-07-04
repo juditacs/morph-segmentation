@@ -33,7 +33,7 @@ def parse_args():
 def main():
     args = parse_args()
     data = DataSet()
-    data.read_data_from_stream(stdin, limit=50000,
+    data.read_data_from_stream(stdin, limit=0,
                                length_limit=args.length_limit)
     data.vectorize_samples()
     data.split_train_valid_test()

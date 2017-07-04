@@ -51,8 +51,18 @@ class DataSet(object):
         self.maxlen_dec += 2
         self.data_enc = np.array(data_enc)
         self.data_dec = np.array(data_dec)
+        self.save_vocabs()
+
+    def save_vocabs(self):
+        with open('/tmp/judit/vocab_enc', 'w') as f:
+            f.write('\n'.join('{}\t{}'.format(k, v) for k, v in
+                    self.vocab_enc.items()))
+        with open('/tmp/judit/vocab_dec', 'w') as f:
+            f.write('\n'.join('{}\t{}'.format(k, v) for k, v in
+                    self.vocab_dec.items()))
 
     def split_train_valid_test(self, valid_ratio=.1, test_ratio=.1):
+        test_ratio = 0.01
         rand_indices = np.random.random(self.data_enc.shape[0])
         train_th = 1.0 - valid_ratio - test_ratio
         valid_th = 1.0 - test_ratio
