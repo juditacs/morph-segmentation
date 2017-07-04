@@ -23,16 +23,17 @@ class SimpleSeq2seq(object):
     def init_cell(self, cell_type, cell_size, layers=None):
         if layers is None or layers == 1:
             if cell_type == 'LSTM':
-                self.cell = tf.contrib.rnn.BasicLSTMCell(cell_size)
+                self.cell = lambda: tf.contrib.rnn.BasicLSTMCell(cell_size)
             elif cell_type == 'GRU':
-                self.cell = tf.contrib.rnn.GRUCell(cell_size)
+                self.cell = lambda: tf.contrib.rnn.GRUCell(cell_size)
         else:
             if cell_type == 'LSTM':
-                self.cell = tf.contrib.rnn.MultiRNNCell(
-                    [tf.contrib.rnn.BasicLSTMCell(cell_size) for _ in range(layers)]
+                self.cell = lambda: tf.contrib.rnn.MultiRNNCell(
+                    [tf.contrib.rnn.BasicLSTMCell(cell_size)
+                     for _ in range(layers)]
                 )
             elif cell_type == 'GRU':
-                self.cell = tf.contrib.rnn.MultiRNNCell(
+                self.cell = lambda: tf.contrib.rnn.MultiRNNCell(
                     [tf.contrib.rnn.GRUCell(cell_size) for _ in range(layers)]
                 )
 
@@ -59,7 +60,7 @@ class SimpleSeq2seq(object):
     def initialize_seq2seq(self, dataset):
         do, dm = tf.contrib.legacy_seq2seq.embedding_attention_seq2seq(
             self.enc_inp, self.dec_inp,
-            cell=self.cell,
+            cell=self.cell(),
             num_encoder_symbols=len(dataset.vocab_enc),
             num_decoder_symbols=len(dataset.vocab_dec),
             embedding_size=self.embedding_size,
@@ -73,7 +74,7 @@ class SimpleSeq2seq(object):
         def seq2seq_f(enc_inp, dec_inp, do_decode):
             return tf.contrib.legacy_seq2seq.embedding_attention_seq2seq(
                 enc_inp, dec_inp,
-                cell=self.cell,
+                cell=self.cell(),
                 num_encoder_symbols=len(dataset.vocab_enc),
                 num_decoder_symbols=len(dataset.vocab_dec),
                 embedding_size=self.embedding_size,
