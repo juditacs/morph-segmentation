@@ -14,18 +14,21 @@ class DataSet(object):
         self.vocab_dec = {}
         self.samples = []
 
-    def read_data_from_stream(self, stream, delimiter='', limit=0, length_limit=0):
+    def read_data_from_stream(self, stream, delimiter='', limit=0,
+                              length_limit=0):
         self.length_limit = length_limit
         for line in stream:
             if not line.strip():
                 continue
             enc, dec = line.rstrip('\n').split('\t')
-            if length_limit > 0 and (len(enc) > length_limit or len(dec) > length_limit):
+            if length_limit > 0 and (len(enc) > length_limit or
+                                     len(dec) > length_limit):
                 continue
             if limit > 0 and len(self.samples) > limit:
                 break
             if delimiter:
-                self.samples.append((enc.split(delimiter), dec.split(delimiter)))
+                self.samples.append((enc.split(delimiter),
+                                     dec.split(delimiter)))
             else:
                 self.samples.append((list(enc), list(dec)))
 
@@ -37,11 +40,14 @@ class DataSet(object):
         for enc, dec in self.samples:
             padded = ['PAD' for p in range(self.maxlen_enc - len(enc))] + enc
             data_enc.append(
-                [self.vocab_enc.setdefault(c, len(self.vocab_enc)) for c in padded]
+                [self.vocab_enc.setdefault(c, len(self.vocab_enc))
+                 for c in padded]
             )
-            padded = ['GO'] + dec + ['PAD' for p in range(self.maxlen_dec - len(dec))] + ['STOP']
+            padded = ['GO'] + dec + \
+                ['PAD' for p in range(self.maxlen_dec - len(dec))] + ['STOP']
             data_dec.append(
-                [self.vocab_dec.setdefault(c, len(self.vocab_dec)) for c in padded]
+                [self.vocab_dec.setdefault(c, len(self.vocab_dec))
+                 for c in padded]
             )
         self.maxlen_dec += 2
         self.data_enc = np.array(data_enc)
