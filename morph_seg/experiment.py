@@ -27,7 +27,9 @@ class Seq2seqExperiment(object):
         'val_loss_th': 1e-3,
         'layers': 1,
     }
-    def __init__(self, dataset, result_fn, conf=None, custom_pranges=None):
+
+    def __init__(self, dataset, result_fn, conf=None,
+                 custom_pranges=None):
         self.dataset = dataset
         self.result_fn = result_fn
         self.custom_pranges = custom_pranges
@@ -46,7 +48,7 @@ class Seq2seqExperiment(object):
         self.model = SimpleSeq2seq(**conf)
         self.model.create_model(self.dataset)
         self.conf = conf
-        
+
     def to_dict(self):
         d = {}
         for param, val in self.conf.items():
@@ -59,8 +61,8 @@ class Seq2seqExperiment(object):
 
     def run(self, save=True, save_output_fn=None):
         self.model.train_and_test(self.dataset, batch_size=1000,
-                                 patience=self.conf['patience'],
-                                 val_loss_th=self.conf['val_loss_th'])
+                                  patience=self.conf['patience'],
+                                  val_loss_th=self.conf['val_loss_th'])
         if save:
             self.save()
         if save_output_fn is not None:
@@ -91,6 +93,5 @@ class Seq2seqExperiment(object):
         self.model.save_train_output(stream)
 
     def save_test_output(self, stream, include_test_input=False):
-        self.model.save_test_output(stream, include_test_input=include_test_input)
-
-
+        self.model.save_test_output(stream,
+                                    include_test_input=include_test_input)
