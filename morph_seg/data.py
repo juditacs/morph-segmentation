@@ -59,12 +59,15 @@ class DataSet(object):
         valid_end = int((1 - test_ratio) * N)
         shuf_ind = np.arange(N)
         np.random.shuffle(shuf_ind)
-        self.data_enc_train = self.data_enc[shuf_ind[:train_end]]
-        self.data_dec_train = self.data_dec[shuf_ind[:train_end]]
-        self.data_enc_valid = self.data_enc[shuf_ind[train_end:valid_end]]
-        self.data_dec_valid = self.data_dec[shuf_ind[train_end:valid_end]]
-        self.data_enc_test = self.data_enc[shuf_ind[valid_end:]]
-        self.data_dec_test = self.data_dec[shuf_ind[valid_end:]]
+        self.train_idx = shuf_ind[:train_end]
+        self.valid_idx = shuf_ind[train_end:valid_end]
+        self.test_idx = shuf_ind[valid_end:]
+        self.data_enc_train = self.data_enc[self.train_idx]
+        self.data_dec_train = self.data_dec[self.train_idx]
+        self.data_enc_valid = self.data_enc[self.valid_idx]
+        self.data_dec_valid = self.data_dec[self.valid_idx]
+        self.data_enc_test = self.data_enc[self.test_idx]
+        self.data_dec_test = self.data_dec[self.test_idx]
 
     def get_batch(self, batch_size):
         try:
@@ -92,19 +95,23 @@ class DataSet(object):
         d['label_counts'] = classes
         return d
 
+    def __get_samples(self, idx, include_input=False):
+        idx = set(idx)
+        if include_input is True:
+            return [(''.join(s[0]), ''.join(s[1]))
+                    for i, s in enumerate(self.samples) if i in idx]
+        else:
+            return [''.join(s[1])
+                    for i, s in enumerate(self.samples) if i in idx]
+
     def get_train_samples(self):
-        train_idx = [i for i in range(self.train_mask.shape[0]) if self.train_mask[i]]
-        return [''.join(self.samples[t][1]) for t in train_idx]
+        return self.__get_samples(self.train_idx, False)
 
     def get_valid_samples(self):
-        valid_idx = [i for i in range(self.valid_mask.shape[0]) if self.valid_mask[i]]
-        return [''.join(self.samples[t][1]) for t in valid_idx]
+        return self.__get_samples(self.valid_idx, False)
 
     def get_test_samples(self, include_test_input=False):
-        test_idx = [i for i in range(self.test_mask.shape[0]) if self.test_mask[i]]
-        if include_test_input:
-            return [(''.join(self.samples[t][0]), ''.join(self.samples[t][1])) for t in test_idx]
-        return [''.join(self.samples[t][1]) for t in test_idx]
+        return self.__get_samples(self.valid_idx, include_test_input)
 
     def save_vocabularies(self, fn):
         enc_fn = '{}_enc.vocab'.format(fn)
