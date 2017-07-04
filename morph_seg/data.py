@@ -53,18 +53,23 @@ class DataSet(object):
         self.data_dec = np.array(data_dec)
 
     def split_train_valid_test(self, valid_ratio=.1, test_ratio=.1):
-        rand_indices = np.random.random(self.data_enc.shape[0])
-        train_th = 1.0 - valid_ratio - test_ratio
-        valid_th = 1.0 - test_ratio
-        self.train_mask = rand_indices <= train_th
-        self.valid_mask = (rand_indices > train_th) & (rand_indices <= valid_th)
-        self.test_mask = (rand_indices > valid_th)
-        self.data_enc_test = self.data_enc[self.test_mask]
-        self.data_dec_test = self.data_dec[self.test_mask]
-        self.data_enc_train = self.data_enc[self.train_mask]
-        self.data_dec_train = self.data_dec[self.train_mask]
-        self.data_enc_valid = self.data_enc[self.valid_mask]
-        self.data_dec_valid = self.data_dec[self.valid_mask]
+        N = self.data_enc.shape[0]
+        if N < 3:
+            raise ValueError("Must have at least 3 training examples")
+        if N * valid_ratio < 1:
+            valid_ratio = 1.0 / N
+        if N * test_ratio < 1:
+            test_ratio = 1.0 / N
+        train_end = int((1 - valid_ratio - test_ratio) * N)
+        valid_end = int((1 - test_ratio) * N)
+        shuf_ind = np.arange(N)
+        np.random.shuffle(shuf_ind)
+        self.data_enc_train = self.data_enc[shuf_ind[:train_end]]
+        self.data_dec_train = self.data_dec[shuf_ind[:train_end]]
+        self.data_enc_valid = self.data_enc[shuf_ind[train_end:valid_end]]
+        self.data_dec_valid = self.data_dec[shuf_ind[train_end:valid_end]]
+        self.data_enc_test = self.data_enc[shuf_ind[valid_end:]]
+        self.data_dec_test = self.data_dec[shuf_ind[valid_end:]]
 
     def get_batch(self, batch_size):
         try:
