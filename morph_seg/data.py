@@ -13,7 +13,6 @@ class DataSet(object):
         self.vocab_enc = {}
         self.vocab_dec = {}
         self.samples = []
-        self.raw_samples = set()
 
     def read_data_from_stream(self, stream, delimiter='', limit=0, length_limit=0):
         self.length_limit = length_limit
@@ -23,16 +22,12 @@ class DataSet(object):
             enc, dec = line.rstrip('\n').split('\t')
             if length_limit > 0 and (len(enc) > length_limit or len(dec) > length_limit):
                 continue
-            if (enc, dec) in self.raw_samples:
-                continue
-            self.raw_samples.add((enc, dec))
-            if limit > 0 and len(self.raw_samples) > limit:
+            if limit > 0 and len(self.samples) > limit:
                 break
             if delimiter:
                 self.samples.append((enc.split(delimiter), dec.split(delimiter)))
             else:
                 self.samples.append((list(enc), list(dec)))
-        self.raw_samples = None
 
     def vectorize_samples(self):
         data_enc = []
