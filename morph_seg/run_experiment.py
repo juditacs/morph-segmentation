@@ -26,7 +26,8 @@ def parse_args():
     p.add_argument('--early-stopping-patience', type=int, default=10)
     p.add_argument('--early-stopping-threshold', type=float, default=1e-3)
     p.add_argument('--layers', type=int, default=1)
-    p.add_argument('--save-test-output', dest='test_output', type=str, default=None)
+    p.add_argument('--save-test-output', dest='test_output', type=str,
+                   default=None)
     return p.parse_args()
 
 
