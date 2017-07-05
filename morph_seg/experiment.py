@@ -6,6 +6,8 @@
 #
 # Distributed under terms of the MIT license.
 
+from __future__ import unicode_literals
+
 import random
 import pandas as pd
 from os import path

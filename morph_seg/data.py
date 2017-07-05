@@ -5,6 +5,8 @@
 # Copyright © 2017 Judit Acs <judit@sch.bme.hu>
 #
 # Distributed under terms of the MIT license.
+from __future__ import unicode_literals
+
 import os
 import numpy as np
 
