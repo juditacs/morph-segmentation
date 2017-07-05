@@ -34,7 +34,7 @@ def parse_args():
 def main():
     args = parse_args()
     data = DataSet()
-    data.read_data_from_stream(stdin, limit=50000,
+    data.read_data_from_stream(stdin, limit=0,
                                length_limit=args.length_limit)
     data.vectorize_samples()
     data.split_train_valid_test()
@@ -59,7 +59,7 @@ def main():
     }
     exp = Seq2seqExperiment(data, args.result_file, conf=conf)
     logging.info("Starting experiment")
-    exp.run(save=False)
+    exp.run(save_stats=False)
     logging.info('Test loss: {}'.format(exp.model.result['test_loss'][-1]))
     if args.test_output is not None:
         with open(args.test_output, 'w') as f:

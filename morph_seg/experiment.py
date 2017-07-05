@@ -59,16 +59,16 @@ class Seq2seqExperiment(object):
             d['data.{}'.format(param)] = val
         return d
 
-    def run(self, save=True, save_output_fn=None):
+    def run(self, save_stats=True, save_output_fn=None):
         self.model.train_and_test(self.dataset, batch_size=1000,
                                   patience=self.conf['patience'],
                                   val_loss_th=self.conf['val_loss_th'])
-        if save:
-            self.save()
+        if save_stats:
+            self.save_stats()
         if save_output_fn is not None:
             self.model.save_test_output(save_output_fn)
 
-    def save(self):
+    def save_stats(self):
         d = self.to_dict()
         if not path.exists(self.result_fn):
             df = pd.DataFrame(columns=d.keys())
