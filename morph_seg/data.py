@@ -102,13 +102,13 @@ class DataSet(object):
         return d
 
     def __get_samples(self, idx, include_input=False):
-        idx = set(idx)
         if include_input is True:
-            return [(''.join(s[0]), ''.join(s[1]))
-                    for i, s in enumerate(self.samples) if i in idx]
+            return [
+                (''.join(self.samples[i][0]), ''.join(self.samples[i][1]))
+                for i in idx
+            ]
         else:
-            return [''.join(s[1])
-                    for i, s in enumerate(self.samples) if i in idx]
+            return [''.join(self.samples[i][0]) for i in idx]
 
     def get_train_samples(self):
         return self.__get_samples(self.train_idx, False)
@@ -117,7 +117,7 @@ class DataSet(object):
         return self.__get_samples(self.valid_idx, False)
 
     def get_test_samples(self, include_test_input=False):
-        return self.__get_samples(self.valid_idx, include_test_input)
+        return self.__get_samples(self.test_idx, include_test_input)
 
     def save_vocabularies(self, fn):
         enc_fn = '{}_enc.vocab'.format(fn)
