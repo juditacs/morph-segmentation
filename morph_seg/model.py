@@ -13,10 +13,13 @@ import tensorflow as tf
 
 
 class SimpleSeq2seq(object):
+    """Wrapper class for TF legacy seq2seq module"""
+
     def __init__(self, cell_type, cell_size, embedding_size,
-                 layers=None, **kwargs):
+                 layers=None, model_dir=None, **kwargs):
         self.init_cell(cell_type, cell_size, layers)
         self.embedding_size = embedding_size
+        self.model_dir = model_dir
         self.result = {}
         tf.reset_default_graph()
 
@@ -102,6 +105,7 @@ class SimpleSeq2seq(object):
         self.result['patience'] = patience
         self.result['val_loss_th'] = val_loss_th
         self.early_cnt = patience
+        saver = tf.train.Saver()
         with tf.Session() as sess:
             start = datetime.now()
             sess.run(tf.global_variables_initializer())
@@ -116,6 +120,8 @@ class SimpleSeq2seq(object):
             else:
                 logging.info('Training completed without early stopping. '
                              'Iterations run: {}'.format(epochs))
+            if self.model_dir is not None:
+                saver.save(sess, self.model_dir, global_step=iter_no)
             self.run_test(sess, dataset)
             self.result['epochs_run'] = iter_no+1
             self.result['running_time'] = (datetime.now() -

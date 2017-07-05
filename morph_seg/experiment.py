@@ -28,7 +28,7 @@ class Seq2seqExperiment(object):
         'layers': 1,
     }
 
-    def __init__(self, dataset, result_fn, conf=None,
+    def __init__(self, dataset, result_fn, model_dir=None, conf=None,
                  custom_pranges=None):
         self.dataset = dataset
         self.result_fn = result_fn
@@ -36,6 +36,7 @@ class Seq2seqExperiment(object):
         self.result = {}
         self.conf = conf
         self.generate_random_config = conf is None
+        self.model_dir = model_dir
         self.create_model()
         for param, val in Seq2seqExperiment.defaults.items():
             self.conf.setdefault(param, val)
@@ -45,6 +46,7 @@ class Seq2seqExperiment(object):
             conf = Seq2seqExperiment.generate_config(self.custom_pranges)
         else:
             conf = self.conf
+        conf['model_dir'] = self.model_dir
         self.model = SimpleSeq2seq(**conf)
         self.model.create_model(self.dataset)
         self.conf = conf

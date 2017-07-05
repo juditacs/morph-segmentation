@@ -28,6 +28,8 @@ def parse_args():
     p.add_argument('--layers', type=int, default=1)
     p.add_argument('--save-test-output', dest='test_output', type=str,
                    default=None)
+    p.add_argument('--save-model', type=str, default=None,
+                   help="Save model to directory")
     return p.parse_args()
 
 
@@ -57,7 +59,8 @@ def main():
         'patience': args.early_stopping_patience,
         'val_loss_th': args.early_stopping_threshold,
     }
-    exp = Seq2seqExperiment(data, args.result_file, conf=conf)
+    exp = Seq2seqExperiment(data, args.result_file, model_dir=args.save_model,
+                            conf=conf)
     logging.info("Starting experiment")
     exp.run(save_stats=False)
     logging.info('Test loss: {}'.format(exp.model.result['test_loss'][-1]))
