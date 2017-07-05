@@ -5,6 +5,7 @@
 # Copyright © 2017 Judit Acs <judit@sch.bme.hu>
 #
 # Distributed under terms of the MIT license.
+import os
 import numpy as np
 
 
@@ -119,12 +120,12 @@ class DataSet(object):
     def get_test_samples(self, include_test_input=False):
         return self.__get_samples(self.test_idx, include_test_input)
 
-    def save_vocabularies(self, fn):
-        enc_fn = '{}_enc.vocab'.format(fn)
+    def save_vocabularies(self, model_dir):
+        enc_fn = os.path.join(model_dir, 'encoding_vocab')
         with open(enc_fn, 'w') as f:
             f.write('\n'.join('{}\t{}'.format(ch, id_)
                               for ch, id_ in self.vocab_enc.items()))
-        dec_fn = '{}_dec.vocab'.format(fn)
+        dec_fn = os.path.join(model_dir, 'decoding_vocab')
         with open(dec_fn, 'w') as f:
             f.write('\n'.join('{}\t{}'.format(ch, id_)
                               for ch, id_ in self.vocab_dec.items()))

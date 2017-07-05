@@ -8,6 +8,7 @@
 from datetime import datetime
 import numpy as np
 import logging
+import os
 
 import tensorflow as tf
 
@@ -121,7 +122,9 @@ class SimpleSeq2seq(object):
                 logging.info('Training completed without early stopping. '
                              'Iterations run: {}'.format(epochs))
             if self.model_dir is not None:
-                saver.save(sess, self.model_dir, global_step=iter_no)
+                model_prefix = os.path.join(self.model_dir, 'model')
+                saver.save(sess, model_prefix, global_step=iter_no)
+                dataset.save_vocabularies(self.model_dir)
             self.run_test(sess, dataset)
             self.result['epochs_run'] = iter_no+1
             self.result['running_time'] = (datetime.now() -
