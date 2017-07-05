@@ -105,19 +105,19 @@ class SimpleSeq2seq(object):
         with tf.Session() as sess:
             start = datetime.now()
             sess.run(tf.global_variables_initializer())
-            for i in range(epochs):
+            for iter_no in range(epochs):
                 self.run_train_step(sess, dataset, batch_size)
-                self.run_validation(sess, dataset, i)
+                self.run_validation(sess, dataset, iter_no)
                 if self.do_early_stopping():
                     logging.info('Early stopping at iteration {}, '
                                  'valid loss: {}'.format(
-                                     i+1, self.result['val_loss'][-1]))
+                                     iter_no+1, self.result['val_loss'][-1]))
                     break
             else:
                 logging.info('Training completed without early stopping. '
                              'Iterations run: {}'.format(epochs))
             self.run_test(sess, dataset)
-            self.result['epochs_run'] = i+1
+            self.result['epochs_run'] = iter_no+1
             self.result['running_time'] = (datetime.now() -
                                            start).total_seconds()
             # self.run_train_as_test(sess, dataset)
