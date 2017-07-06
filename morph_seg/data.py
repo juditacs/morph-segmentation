@@ -129,10 +129,18 @@ class DataSet(object):
 
     def save_vocabularies(self, model_dir):
         enc_fn = os.path.join(model_dir, 'encoding_vocab')
-        with open(enc_fn, 'w') as f:
-            f.write('\n'.join('{}\t{}'.format(ch, id_)
-                              for ch, id_ in self.vocab_enc.items()))
+        DataSet.write_dict_to_file(self.vocab_enc, enc_fn)
         dec_fn = os.path.join(model_dir, 'decoding_vocab')
-        with open(dec_fn, 'w') as f:
-            f.write('\n'.join('{}\t{}'.format(ch, id_)
-                              for ch, id_ in self.vocab_dec.items()))
+        DataSet.write_dict_to_file(self.vocab_dec, dec_fn)
+
+    @staticmethod
+    def write_dict_to_file(dict_, filename):
+        with open(filename, 'w') as f:
+            try:
+                f.write('\n'.join(
+                    '{}\t{}'.format(k, v) for k, v in dict_.items()
+                ).encode('utf8'))
+            except TypeError:
+                f.write('\n'.join(
+                    '{}\t{}'.format(k, v) for k, v in dict_.items()
+                ))
