@@ -150,3 +150,50 @@ class DataSet(object):
                 f.write('\n'.join(
                     '{}\t{}'.format(k, v) for k, v in dict_.items()
                 ))
+
+
+class EncoderInput(DataSet):
+    """Encoder input without output.
+    This class should be used for inference,
+    when gold standard decoding data is not available.
+    """
+    def __init__(self, enc_vocab_fn, dec_vocab_fn):
+        self.vocab_enc = read_vocab(enc_vocab_fn)
+        self.vocab_dec = read_vocab(dec_vocab_fn)
+        self.samples = []
+
+    def read_data_from_stream(self, stream, delimiter='', limit=0,
+                              length_limit=0):
+        self.length_limit = length_limit
+        for line in stream:
+            try:
+                line = line.decode("utf8")
+            except AttributeError:
+                pass
+            if not line.strip():
+                continue
+            enc = line.rstrip('\n')
+            if length_limit > 0 and len(enc) > length_limit:
+                continue
+            if limit > 0 and len(self.samples) > limit:
+                break
+            if delimiter:
+                self.samples.append((enc.split(delimiter), ''))
+            else:
+                self.samples.append((list(enc), list('')))
+
+    @property
+    def test_idx(self):
+        return range(len(self.samples))
+
+
+def read_vocab(filename):
+    with open(filename) as f:
+        vocab = {}
+        for line in f:
+            try:
+                fd = line.decode('utf8').split('\t')
+            except AttributeError:
+                fd = line.split('\t')
+            vocab[fd[0]] = int(fd[1])
+        return vocab
