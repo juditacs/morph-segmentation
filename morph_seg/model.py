@@ -91,7 +91,7 @@ class SimpleSeq2seq(object):
         self.outputs, self.loss = tf.contrib.legacy_seq2seq.model_with_buckets(
             self.enc_inp, self.dec_inp,
             targets, self.target_weights, self.buckets,
-            lambda x, y: seq2seq_f(x, y, False)
+            lambda x, y: seq2seq_f(x, y, self.feed_previous)
         )
 
         def create_optimizer():
