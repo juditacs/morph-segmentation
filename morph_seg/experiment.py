@@ -30,7 +30,7 @@ class Seq2seqExperiment(object):
         'layers': 1,
     }
 
-    def __init__(self, dataset, result_fn, model_dir=None, conf=None,
+    def __init__(self, dataset, result_fn=None, model_dir=None, conf=None,
                  custom_pranges=None):
         self.dataset = dataset
         self.result_fn = result_fn
