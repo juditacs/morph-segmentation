@@ -199,7 +199,7 @@ class SimpleSeq2seq(object):
             stream.write('\n'.join('{0}\t{1}'.format(gold, output)
                                    for gold, output in zip(
                                     test_samples, self.decoded)).encode('utf8'))
-        except AttributeError:
+        except TypeError:
             stream.write('\n'.join('{0}\t{1}'.format(gold, output)
                                    for gold, output in zip(
                                     test_samples, self.decoded)))
