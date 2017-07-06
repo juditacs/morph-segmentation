@@ -5,6 +5,8 @@
 # Copyright © 2017 Judit Acs <judit@sch.bme.hu>
 #
 # Distributed under terms of the MIT license.
+from __future__ import unicode_literals
+
 import os
 import numpy as np
 
@@ -19,6 +21,11 @@ class DataSet(object):
                               length_limit=0):
         self.length_limit = length_limit
         for line in stream:
+            # dirty hack for Python 2 support
+            try:
+                line = line.decode("utf8")
+            except AttributeError:
+                pass
             if not line.strip():
                 continue
             enc, dec = line.rstrip('\n').split('\t')
