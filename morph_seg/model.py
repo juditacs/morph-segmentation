@@ -123,7 +123,7 @@ class SimpleSeq2seq(object):
                              'Iterations run: {}'.format(epochs))
             if self.model_dir is not None:
                 model_prefix = os.path.join(self.model_dir, 'model')
-                saver.save(sess, model_prefix, global_step=iter_no)
+                saver.save(sess, model_prefix)
                 dataset.save_vocabularies(self.model_dir)
             self.run_test(sess, dataset)
             self.result['epochs_run'] = iter_no+1
@@ -193,9 +193,14 @@ class SimpleSeq2seq(object):
         )
         if include_test_input:
             test_samples = ['\t'.join(t) for t in test_samples]
-        stream.write('\n'.join('{0}\t{1}'.format(gold, output)
-                               for gold, output in zip(
-                                   test_samples, self.decoded)))
+        try:
+            stream.write('\n'.join('{0}\t{1}'.format(gold, output)
+                                   for gold, output in zip(
+                                    test_samples, self.decoded)).encode('utf8'))
+        except AttributeError:
+            stream.write('\n'.join('{0}\t{1}'.format(gold, output)
+                                   for gold, output in zip(
+                                    test_samples, self.decoded)))
 
     def decode_test(self, replace_pad=True):
         inv_vocab = {v: k for k, v in self.dataset.vocab_dec.items()}
