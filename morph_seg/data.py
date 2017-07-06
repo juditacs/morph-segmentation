@@ -40,11 +40,17 @@ class DataSet(object):
             else:
                 self.samples.append((list(enc), list(dec)))
 
-    def vectorize_samples(self):
+    def vectorize_samples(self, maxlen_enc=0, maxlen_dec=0):
         data_enc = []
         data_dec = []
-        self.maxlen_enc = max(len(s[0]) for s in self.samples)
-        self.maxlen_dec = max(len(s[1]) for s in self.samples)
+        if maxlen_enc == 0:
+            self.maxlen_enc = max(len(s[0]) for s in self.samples)
+        else:
+            self.maxlen_enc = maxlen_dec
+        if maxlen_dec == 0:
+            self.maxlen_dec = max(len(s[1]) for s in self.samples)
+        else:
+            self.maxlen_dec = maxlen_dec
         for enc, dec in self.samples:
             padded = ['PAD' for p in range(self.maxlen_enc - len(enc))] + enc
             data_enc.append(
