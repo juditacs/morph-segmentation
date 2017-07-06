@@ -99,6 +99,27 @@ class SimpleSeq2seq(object):
 
         self.train_ops = [create_optimizer().minimize(l) for l in self.loss]
 
+    def run_inference(self, dataset, model_path):
+        """
+        Run inference on encoding data.
+        The dataset parameter must have a data_dec attribute,
+        but its value is ignored.
+        Inference is run once on the full dataset,
+        no batching used.
+        """
+        self.dataset = dataset
+        saver = tf.train.Saver()
+        with tf.Session() as sess:
+            sess.run(tf.global_variables_initializer())
+            saver.restore(sess, model_path)
+            feed_dict = self.populate_feed_dict(
+                dataset.data_enc,
+                dataset.data_dec,
+            )
+            feed_dict[self.feed_previous] = True
+            out = sess.run(self.outputs, feed_dict=feed_dict)
+            self.test_out = out
+
     def train_and_test(self, dataset, batch_size, epochs=100000,
                        patience=5, val_loss_th=1e-4):
         self.result['train_loss'] = []
