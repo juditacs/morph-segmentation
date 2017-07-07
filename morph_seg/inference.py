@@ -10,6 +10,7 @@ from __future__ import unicode_literals
 from argparse import ArgumentParser
 import os
 from sys import stdin, stdout
+import json
 
 from data import EncoderInput
 from model import SimpleSeq2seq
@@ -36,13 +37,10 @@ def main():
     args = parse_args()
     data = EncoderInput(args.model_dir)
     data.read_data_from_stream(stdin)
-    data.vectorize_samples()
-    conf = {
-        'cell_type': args.cell_type,
-        'cell_size': args.cell_size,
-        'embedding_size': args.embedding_size,
-        'layers': args.layers,
-    }
+    data.vectorize_samples(frozen=True)
+    model_params = os.path.join(args.model_dir, 'model_params.json')
+    with open(model_params) as f:
+        conf = json.load(f)
     model = SimpleSeq2seq(**conf)
     model.create_model(data)
     model.run_inference(data, os.path.join(args.model_dir, 'model'))

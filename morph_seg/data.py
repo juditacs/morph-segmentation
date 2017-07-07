@@ -147,14 +147,13 @@ class DataSet(object):
         DataSet.write_dict_to_file(self.vocab_dec, dec_fn)
 
     def save_params(self, model_dir):
-        fn = os.path.join(model_dir, 'dataset_params.tsv')
+        fn = os.path.join(model_dir, 'dataset_params.json')
         d = {
             'maxlen_enc': self.maxlen_enc,
             'maxlen_dec': self.maxlen_enc,
         }
         with open(fn, 'w') as f:
-            for param, val in d.items():
-                f.write('{}\t{}\n'.format(param, val))
+            json.dump(d, f)
 
     @staticmethod
     def write_dict_to_file(dict_, filename):
@@ -179,15 +178,14 @@ class EncoderInput(DataSet):
         self.vocab_enc = read_vocab(enc_vocab_fn)
         dec_vocab_fn = os.path.join(model_dir, 'decoding_vocab')
         self.vocab_dec = read_vocab(dec_vocab_fn)
-        conf_fn = os.path.join(model_dir, 'dataset_params.tsv')
-        self.load_maxlens(conf_fn)
+        conf_fn = os.path.join(model_dir, 'dataset_params.json')
+        self.load_params(conf_fn)
         self.samples = []
 
-    def load_maxlens(self, fn):
+    def load_params(self, fn):
         with open(fn) as f:
-            for line in f:
-                param, val = line.rstrip('\n').split('\t')
-                setattr(self, param, int(val))
+            for param, val in json.load(f).items():
+                setattr(self, param, val)
 
     def read_data_from_stream(self, stream, delimiter='', limit=0):
         """Reads unlabeled data from a stream"""

@@ -11,6 +11,7 @@ from datetime import datetime
 import numpy as np
 import logging
 import os
+import json
 
 import tensorflow as tf
 
@@ -21,6 +22,9 @@ class SimpleSeq2seq(object):
     def __init__(self, cell_type, cell_size, embedding_size,
                  layers=None, model_dir=None, **kwargs):
         self.init_cell(cell_type, cell_size, layers)
+        self.cell_type = cell_type
+        self.cell_size = cell_size
+        self.layers = layers
         self.embedding_size = embedding_size
         self.model_dir = model_dir
         self.result = {}
@@ -147,6 +151,8 @@ class SimpleSeq2seq(object):
             if self.model_dir is not None:
                 model_prefix = os.path.join(self.model_dir, 'model')
                 saver.save(sess, model_prefix)
+                param_fn = os.path.join(self.model_dir, 'model_params.json')
+                self.save_params(param_fn)
                 dataset.save_vocabularies(self.model_dir)
                 dataset.save_params(self.model_dir)
             self.run_test(sess, dataset)
@@ -154,6 +160,16 @@ class SimpleSeq2seq(object):
             self.result['running_time'] = (datetime.now() -
                                            start).total_seconds()
             # self.run_train_as_test(sess, dataset)
+
+    def save_params(self, fn):
+        d = {
+            'cell_type': self.cell_type,
+            'cell_size': self.cell_size,
+            'embedding_size': self.embedding_size,
+            'layers': self.layers,
+        }
+        with open(fn, 'w') as f:
+            json.dump(d, f)
 
     def do_early_stopping(self):
         if len(self.result['val_loss']) < self.result['patience']:
