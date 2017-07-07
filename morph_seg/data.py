@@ -9,12 +9,13 @@ from __future__ import unicode_literals
 
 import os
 import numpy as np
+import json
 
 
 class DataSet(object):
     def __init__(self):
-        self.vocab_enc = {}
-        self.vocab_dec = {}
+        self.vocab_enc = {"": 0}
+        self.vocab_dec = {"": 0}
         self.samples = []
 
     def read_data_from_stream(self, stream, delimiter='', limit=0):
@@ -35,7 +36,7 @@ class DataSet(object):
             else:
                 self.samples.append((list(enc), list(dec)))
 
-    def vectorize_samples(self):
+    def vectorize_samples(self, frozen=False):
         data_enc = []
         data_dec = []
         try:
@@ -49,16 +50,28 @@ class DataSet(object):
         dec_pad_length = self.maxlen_dec - 2
         for enc, dec in self.samples:
             padded = ['PAD' for p in range(self.maxlen_enc - len(enc))] + enc
-            data_enc.append(
-                [self.vocab_enc.setdefault(c, len(self.vocab_enc))
-                 for c in padded]
-            )
+            if frozen:
+                data_enc.append(
+                    [self.vocab_enc.get(c, 0)
+                     for c in padded]
+                )
+            else:
+                data_enc.append(
+                    [self.vocab_enc.setdefault(c, len(self.vocab_enc))
+                     for c in padded]
+                )
             padded = ['GO'] + dec + \
                 ['PAD' for p in range(dec_pad_length - len(dec))] + ['STOP']
-            data_dec.append(
-                [self.vocab_dec.setdefault(c, len(self.vocab_dec))
-                 for c in padded]
-            )
+            if frozen:
+                data_dec.append(
+                    [self.vocab_dec.get(c, 0)
+                     for c in padded]
+                )
+            else:
+                data_dec.append(
+                    [self.vocab_dec.setdefault(c, len(self.vocab_dec))
+                     for c in padded]
+                )
         self.data_enc = np.array(data_enc)
         self.data_dec = np.array(data_dec)
 
