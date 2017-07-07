@@ -40,17 +40,18 @@ class DataSet(object):
             else:
                 self.samples.append((list(enc), list(dec)))
 
-    def vectorize_samples(self, maxlen_enc=0, maxlen_dec=0):
+    def vectorize_samples(self):
         data_enc = []
         data_dec = []
-        if maxlen_enc == 0:
+        try:
+            self.maxlen_enc
+        except AttributeError:
             self.maxlen_enc = max(len(s[0]) for s in self.samples)
-        else:
-            self.maxlen_enc = maxlen_enc
-        if maxlen_dec == 0:
-            self.maxlen_dec = max(len(s[1]) for s in self.samples)
-        else:
-            self.maxlen_dec = maxlen_dec
+        try:
+            self.maxlen_dec
+        except AttributeError:
+            self.maxlen_dec = max(len(s[1]) for s in self.samples) + 2
+        dec_pad_length = self.maxlen_dec - 2
         for enc, dec in self.samples:
             padded = ['PAD' for p in range(self.maxlen_enc - len(enc))] + enc
             data_enc.append(
@@ -58,12 +59,11 @@ class DataSet(object):
                  for c in padded]
             )
             padded = ['GO'] + dec + \
-                ['PAD' for p in range(self.maxlen_dec - len(dec))] + ['STOP']
+                ['PAD' for p in range(dec_pad_length - len(dec))] + ['STOP']
             data_dec.append(
                 [self.vocab_dec.setdefault(c, len(self.vocab_dec))
                  for c in padded]
             )
-        self.maxlen_dec += 2
         self.data_enc = np.array(data_enc)
         self.data_dec = np.array(data_dec)
 
@@ -139,6 +139,16 @@ class DataSet(object):
         dec_fn = os.path.join(model_dir, 'decoding_vocab')
         DataSet.write_dict_to_file(self.vocab_dec, dec_fn)
 
+    def save_params(self, model_dir):
+        fn = os.path.join(model_dir, 'dataset_params.tsv')
+        d = {
+            'maxlen_enc': self.maxlen_enc,
+            'maxlen_dec': self.maxlen_enc,
+        }
+        with open(fn, 'w') as f:
+            for param, val in d.items():
+                f.write('{}\t{}\n'.format(param, val))
+
     @staticmethod
     def write_dict_to_file(dict_, filename):
         with open(filename, 'w') as f:
@@ -157,10 +167,20 @@ class EncoderInput(DataSet):
     This class should be used for inference,
     when gold standard decoding data is not available.
     """
-    def __init__(self, enc_vocab_fn, dec_vocab_fn):
+    def __init__(self, model_dir):
+        enc_vocab_fn = os.path.join(model_dir, 'encoding_vocab')
         self.vocab_enc = read_vocab(enc_vocab_fn)
+        dec_vocab_fn = os.path.join(model_dir, 'decoding_vocab')
         self.vocab_dec = read_vocab(dec_vocab_fn)
+        conf_fn = os.path.join(model_dir, 'dataset_params.tsv')
+        self.load_maxlens(conf_fn)
         self.samples = []
+
+    def load_maxlens(self, fn):
+        with open(fn) as f:
+            for line in f:
+                param, val = line.rstrip('\n').split('\t')
+                setattr(self, param, int(val))
 
     def read_data_from_stream(self, stream, delimiter='', limit=0,
                               length_limit=0):

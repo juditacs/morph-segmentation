@@ -148,6 +148,7 @@ class SimpleSeq2seq(object):
                 model_prefix = os.path.join(self.model_dir, 'model')
                 saver.save(sess, model_prefix)
                 dataset.save_vocabularies(self.model_dir)
+                dataset.save_params(self.model_dir)
             self.run_test(sess, dataset)
             self.result['epochs_run'] = iter_no+1
             self.result['running_time'] = (datetime.now() -

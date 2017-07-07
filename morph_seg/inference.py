@@ -34,11 +34,9 @@ def parse_args():
 
 def main():
     args = parse_args()
-    vocab_enc_fn = os.path.join(args.model_dir, 'encoding_vocab')
-    vocab_dec_fn = os.path.join(args.model_dir, 'decoding_vocab')
-    data = EncoderInput(vocab_enc_fn, vocab_dec_fn)
+    data = EncoderInput(args.model_dir)
     data.read_data_from_stream(stdin)
-    data.vectorize_samples(maxlen_enc=20, maxlen_dec=22)
+    data.vectorize_samples()
     conf = {
         'cell_type': args.cell_type,
         'cell_size': args.cell_size,
