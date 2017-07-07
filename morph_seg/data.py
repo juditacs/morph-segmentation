@@ -46,7 +46,7 @@ class DataSet(object):
         if maxlen_enc == 0:
             self.maxlen_enc = max(len(s[0]) for s in self.samples)
         else:
-            self.maxlen_enc = maxlen_dec
+            self.maxlen_enc = maxlen_enc
         if maxlen_dec == 0:
             self.maxlen_dec = max(len(s[1]) for s in self.samples)
         else:
