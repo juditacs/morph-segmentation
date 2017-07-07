@@ -11,11 +11,8 @@ from argparse import ArgumentParser
 import os
 from sys import stdin, stdout
 
-import tensorflow as tf
-
 from data import EncoderInput
 from model import SimpleSeq2seq
-from experiment import Seq2seqExperiment
 
 
 def parse_args():
@@ -51,7 +48,7 @@ def main():
     model = SimpleSeq2seq(**conf)
     model.create_model(data)
     model.run_inference(data, os.path.join(args.model_dir, 'model'))
-    model.save_test_output(stdout, include_test_input=True)
+    model.save_test_output(stdout, include_test_input=False)
 
 if __name__ == '__main__':
     main()
