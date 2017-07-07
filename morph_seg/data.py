@@ -99,7 +99,6 @@ class DataSet(object):
 
     def to_dict(self):
         d = {
-            'length_limit': self.length_limit,
             'enc_shape': self.data_enc.shape,
             'dec_shape': self.data_dec.shape,
             'train_enc_shape': self.data_enc_train.shape,
@@ -182,9 +181,7 @@ class EncoderInput(DataSet):
                 param, val = line.rstrip('\n').split('\t')
                 setattr(self, param, int(val))
 
-    def read_data_from_stream(self, stream, delimiter='', limit=0,
-                              length_limit=0):
-        self.length_limit = length_limit
+    def read_data_from_stream(self, stream, delimiter='', limit=0):
         for line in stream:
             try:
                 line = line.decode("utf8")
@@ -193,8 +190,6 @@ class EncoderInput(DataSet):
             if not line.strip():
                 continue
             enc = line.rstrip('\n')
-            if length_limit > 0 and len(enc) > length_limit:
-                continue
             if limit > 0 and len(self.samples) > limit:
                 break
             if delimiter:
