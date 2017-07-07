@@ -17,9 +17,7 @@ class DataSet(object):
         self.vocab_dec = {}
         self.samples = []
 
-    def read_data_from_stream(self, stream, delimiter='', limit=0,
-                              length_limit=0):
-        self.length_limit = length_limit
+    def read_data_from_stream(self, stream, delimiter='', limit=0):
         for line in stream:
             # dirty hack for Python 2 support
             try:
@@ -29,9 +27,6 @@ class DataSet(object):
             if not line.strip():
                 continue
             enc, dec = line.rstrip('\n').split('\t')
-            if length_limit > 0 and (len(enc) > length_limit or
-                                     len(dec) > length_limit):
-                continue
             if limit > 0 and len(self.samples) > limit:
                 break
             if delimiter:
