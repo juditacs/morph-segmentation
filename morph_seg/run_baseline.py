@@ -20,16 +20,13 @@ def parse_args():
                    help='Path to result table')
     p.add_argument('-n', type=int, default=1,
                    help='Run N number of experiments')
-    p.add_argument('-l', '--length-limit', type=int, default=0,
-                   help='Filter longer words than length_limit')
     return p.parse_args()
 
 
 def main():
     args = parse_args()
     data = DataSet()
-    data.read_data_from_stream(stdin, limit=50000,
-                               length_limit=args.length_limit)
+    data.read_data_from_stream(stdin, limit=50000)
     data.vectorize_samples()
     data.split_train_valid_test()
     for n in range(args.n):

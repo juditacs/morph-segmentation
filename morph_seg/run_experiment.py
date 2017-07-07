@@ -18,8 +18,6 @@ def parse_args():
     p = ArgumentParser(description='Run baseline seq2seq experiments.')
     p.add_argument('-r', '--result-file', type=str,
                    help='Path to result table')
-    p.add_argument('-l', '--length-limit', type=int, default=0,
-                   help='Filter longer words than length_limit')
     p.add_argument('--cell-type', choices=['LSTM', 'GRU'],
                    default='LSTM')
     p.add_argument('--cell-size', type=int, default=16)
@@ -37,8 +35,7 @@ def parse_args():
 def main():
     args = parse_args()
     data = DataSet()
-    data.read_data_from_stream(stdin, limit=0,
-                               length_limit=args.length_limit)
+    data.read_data_from_stream(stdin, limit=0)
     data.vectorize_samples()
     data.split_train_valid_test()
     logging.info("Train data shape: encoder - {}, decoder - {}".format(
