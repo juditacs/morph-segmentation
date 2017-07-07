@@ -177,6 +177,7 @@ class EncoderInput(DataSet):
                 setattr(self, param, int(val))
 
     def read_data_from_stream(self, stream, delimiter='', limit=0):
+        """Reads unlabeled data from a stream"""
         for line in stream:
             try:
                 line = line.decode("utf8")
@@ -187,6 +188,8 @@ class EncoderInput(DataSet):
             enc = line.rstrip('\n')
             if limit > 0 and len(self.samples) > limit:
                 break
+            if len(enc) > self.maxlen_enc:
+                enc = enc[-self.maxlen_enc:]
             if delimiter:
                 self.samples.append((enc.split(delimiter), ''))
             else:
