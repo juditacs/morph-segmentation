@@ -1,42 +1,51 @@
 # morph-segmentation-experiments
+
 Experimenting with supervised morphological segmentation as a seq2seq problem
 
-# Experiment parameters
+## Input data
 
-## Model
+The train scripts read the data from the standard input and expect one line per sample.
+The input and the output sequences should be separated by TAB.
+Example:
 
-* embedding size
-* cell type
-* cell size
-* multilayer rnn
+~~~
+autót	autó t
+ablakokat	ablak ok at
+~~~
 
-### Training parameters
+The inference script also reads from the standard input and expects one sample per line.
 
-* batch size
-* optimizer type
-* optimizer parameters
-* early stopping parameters
-  * patience
-  * threshold
+## Training your own model
 
-## Data and feature extraction
+~~~
+cat training_data | python morph_seg/train.py --save-test-output test_output --save-model model_directory --cell-size 64 --result-file results.tsv
+~~~
 
-* max samples
-* uniq samples
-* buckets
-* use stop symbol
+This will train a seq2seq model with the default arguments listed in the source file (train.py).
 
-## Output
+| argument | default | explanation |
+| ----- | ----- | ------ |
+| `save-test-output` | `None` | Save the model's output on the test set (randomly sampled) |
+| `save-model` | `None` |  Save the model and other stuff needed for inference. This should be an exisiting directory. |
+| `result-file` | `None` | Save the experiment's configuration and the result statistics. |
+| `cell-type` | `LSTM` | Use LSTM or GRU cells. |
+| `cell-size` | 16 | Number of LSTM/GRU cells to use. |
+| `layers` | 1 | Number of layers. |
+| `embedding-size` | 20 | Dimension of embedding. |
+| `early-stopping-threshold` | 0.001 | Stop training when val loss does not change more than this threshold for N steps. |
+| `early-stopping-patience` | 10 | Stop training if val loss does not change more than the threshold for N steps. |
 
-* data dimensions
-* losses
-  * by bucket size
-* running time
-* timestamp
-* number of epochs run
+Note that the first three arguments' default is `None`.
+This means that unless specified, they do not write to file.
+They are not linked though, any one can be left out.
 
-## Environment
+## Using your model for inference
 
-* machine
-* GPU, Cuda version
-* git commit hash
+`train.py` saves everything needed for inference to the directory specified by the `save-model` argument.
+Inference can be run like this:
+
+~~~
+cat test_data | python morph_seg/inference.py --model-dir your_saved_model
+~~~
+
+Note that longer samples than the maximum length in the training data will be trimmed from their beginning.
