@@ -24,6 +24,9 @@ def parse_args():
                    help='Path to result table')
     p.add_argument('--cell-type', choices=['LSTM', 'GRU'],
                    default='LSTM')
+    p.add_argument('--sample-count', type=int, default=0,
+                   help="Read at most N samples. If unspecified,"
+                   "the full dataset is read.")
     p.add_argument('--cell-size', type=int, default=16)
     p.add_argument('--embedding-size', type=int, default=20)
     p.add_argument('--early-stopping-patience', type=int, default=10)
@@ -42,12 +45,12 @@ def main():
     if args.train_file:
         if args.train_file.endswith('.gz'):
             with gzip.open(args.train_file) as infile:
-                data.read_data_from_stream(infile)
+                data.read_data_from_stream(infile, limit=args.sample_count)
         else:
             with open(args.train_file) as infile:
-                data.read_data_from_stream(infile)
+                data.read_data_from_stream(infile, limit=args.sample_count)
     else:
-        data.read_data_from_stream(stdin)
+        data.read_data_from_stream(stdin, limit=args.sample_count)
     data.vectorize_samples()
     data.split_train_valid_test()
     logging.info("Train data shape: encoder - {}, decoder - {}".format(
