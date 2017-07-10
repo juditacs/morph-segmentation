@@ -4,8 +4,11 @@ Experimenting with supervised morphological segmentation as a seq2seq problem
 
 ## Input data
 
-The train scripts read the data from the standard input and expect one line per sample.
+Tre train script (`train.py`) expects the training input as either as its only positional argument or it reads it from standard input if no positional argument is provided.
+Gzip files are supported.
+The training data is expected to have one line per sample.
 The input and the output sequences should be separated by TAB.
+
 Example:
 
 ~~~
