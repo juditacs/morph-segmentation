@@ -9,6 +9,7 @@ from __future__ import unicode_literals
 
 from argparse import ArgumentParser
 from sys import stdin
+import gzip
 
 from experiment import Seq2seqExperiment
 from data import DataSet
@@ -16,6 +17,9 @@ from data import DataSet
 
 def parse_args():
     p = ArgumentParser(description='Run baseline seq2seq experiments.')
+    p.add_argument('train_file', type=str, default=stdin,
+                   help="Plain text of gzip file containing the training"
+                   "data. If not specified, STDIN is used")
     p.add_argument('-r', '--result-file', type=str,
                    help='Path to result table')
     p.add_argument('--cell-type', choices=['LSTM', 'GRU'],
@@ -35,7 +39,15 @@ def parse_args():
 def main():
     args = parse_args()
     data = DataSet()
-    data.read_data_from_stream(stdin, limit=0)
+    if args.train_file:
+        if args.train_file.endswith('.gz'):
+            with gzip.open(args.train_file) as infile:
+                data.read_data_from_stream(infile)
+        else:
+            with open(args.train_file) as infile:
+                data.read_data_from_stream(infile)
+    else:
+        data.read_data_from_stream(stdin)
     data.vectorize_samples()
     data.split_train_valid_test()
     logging.info("Train data shape: encoder - {}, decoder - {}".format(
