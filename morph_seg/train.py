@@ -11,13 +11,15 @@ from argparse import ArgumentParser
 from sys import stdin
 import gzip
 
+from tensorflow.python.lib.io import file_io
+
 from experiment import Seq2seqExperiment
 from data import DataSet
 
 
 def parse_args():
     p = ArgumentParser(description='Run baseline seq2seq experiments.')
-    p.add_argument('train_file', type=str, default=stdin,
+    p.add_argument('--train-file', type=str, default=stdin,
                    help="Plain text of gzip file containing the training"
                    "data. If not specified, STDIN is used")
     p.add_argument('-r', '--result-file', type=str,
@@ -47,7 +49,7 @@ def main():
             with gzip.open(args.train_file) as infile:
                 data.read_data_from_stream(infile, limit=args.sample_count)
         else:
-            with open(args.train_file) as infile:
+            with file_io.FileIO(args.train_file, mode='w+') as infile:
                 data.read_data_from_stream(infile, limit=args.sample_count)
     else:
         data.read_data_from_stream(stdin, limit=args.sample_count)
