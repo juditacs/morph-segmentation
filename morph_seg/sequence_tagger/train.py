@@ -100,7 +100,7 @@ class Result(DictConvertible):
     )
 
 
-class SequentialTagger(object):
+class SequenceTagger(object):
     def __init__(self, dataset, config):
         self.config = config
         self.dataset = dataset
@@ -184,7 +184,7 @@ def main():
     args = parse_args()
     cfg = Config(vars(args))
     dataset = DataSet(stdin)
-    model = SequentialTagger(dataset, cfg)
+    model = SequenceTagger(dataset, cfg)
     model.run_train_test()
 
 
