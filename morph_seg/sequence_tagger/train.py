@@ -10,6 +10,7 @@ from argparse import ArgumentParser
 from sys import stdin
 import os
 import cPickle
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -99,6 +100,7 @@ class Result(DictConvertible):
         'train_acc', 'train_loss',
         'val_loss',
         'test_acc', 'test_loss',
+        'running_time',
     )
 
 
@@ -130,6 +132,7 @@ class SequenceTagger(object):
     def run_train_test(self):
         ea = EarlyStopping(monitor='val_loss')
         tb = TensorBoard(log_dir='./logs')
+        start = datetime.now()
         history = self.model.fit(
             self.dataset.x_train, self.dataset.y_train,
             epochs=10000,
@@ -138,6 +141,9 @@ class SequenceTagger(object):
             callbacks=[ea, tb],
             verbose=0,
         )
+        self.result.running_time = (
+            datetime.now() - start
+        ).total_seconds()
         self.result.val_loss = history.history['val_loss']
         self.result.train_loss = history.history['loss']
         self.evaluate()
