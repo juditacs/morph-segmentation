@@ -40,6 +40,7 @@ def generate_config():
 def main():
     args = parse_args()
     dataset = DataSet(stdin)
+    logging.info("Dataset loaded. Shape: {}".format(dataset.x.shape))
     for n in range(1, args.N+1):
         logging.info("Running experiment {}/{}".format(n, args.N))
         cfg = generate_config()
@@ -48,6 +49,8 @@ def main():
         cfg['dataframe_path'] = args.dataframe_path
         model = SequenceTagger(dataset, Config(cfg))
         model.run_train_test()
+        logging.info("Test loss: {0}, test accuracy: {1}".format(
+            model.result.test_loss, model.result.test_acc))
 
 if __name__ == '__main__':
     import logging
