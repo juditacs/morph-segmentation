@@ -2,6 +2,13 @@
 
 Experimenting with supervised morphological segmentation as a seq2seq problem
 
+Currently two supervised models are supported: seq2seq and sequence tagger (LSTM) baseline.
+
+# Seq2seq models
+
+The seq2seq source code is located in the `morph_seg/seq2seq` directory.
+It uses Tensorflow's `legacy_seq2seq`.
+
 ## Input data
 
 Tre train script (`train.py`) expects the training input as either as its only positional argument or it reads it from standard input if no positional argument is provided.
