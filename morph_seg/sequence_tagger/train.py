@@ -9,6 +9,7 @@
 from argparse import ArgumentParser
 from sys import stdin
 import os
+import cPickle
 
 import numpy as np
 import pandas as pd
@@ -35,13 +36,13 @@ def parse_args():
                    help="Use BiDirectional LSTM")
     p.add_argument('--layers', type=int, default=1,
                    help="Number of recurrent layers")
-    p.add_argument('--batch-size', type=int, default=128)
+    p.add_argument('--batch-size', type=int, default=512)
     p.add_argument('--log-results', action='store_true',
                    help="Write experiment statistics including"
                    "results to pandas dataframe")
     p.add_argument('--dataframe-path', type=str, default='results.tsv',
                    help="Path to results dataframe")
-    p.add_argument('--save-model', type=str, default=None,
+    p.add_argument('--save-model-dir', type=str, default=None,
                    help="Save trained model to HDF5 file")
     return p.parse_args()
 
@@ -70,7 +71,8 @@ class Config(DictConvertible):
         'batch_size': 1024,
         'optimizer': 'Adam',
         'log_results': False,
-        'save_model': None,
+        'save_model_dir': None,
+        'layers': 1,
     }
     __slots__ = tuple(defaults.keys()) + (
         'cell_type', 'cell_size', 'embedding_size',
@@ -138,8 +140,8 @@ class SequenceTagger(object):
         )
         self.result.val_loss = history.history['val_loss']
         self.result.train_loss = history.history['loss']
-        self.save_model()
         self.evaluate()
+        self.save_model()
         
     def evaluate(self):
         res = self.model.evaluate(self.dataset.x_test, self.dataset.y_test)
@@ -155,8 +157,14 @@ class SequenceTagger(object):
             self.log()
 
     def save_model(self):
-        if self.config.save_model is not None:
-            self.model.save(self.config.save_model)
+        if self.config.save_model_dir is not None:
+            model_fn = os.path.join(self.config.save_model_dir, 'model.hdf5')
+            self.model.save(model_fn)
+            d = self.to_dict()
+            params_fn = os.path.join(self.config.save_model_dir,
+                                     'params.cpk')
+            with open(params_fn, 'w') as f:
+                cPickle.dump(d, f)
 
     def log(self):
         d = self.to_dict()
