@@ -7,6 +7,8 @@
 # Distributed under terms of the MIT license.
 
 import gzip
+import os
+import cPickle
 
 import numpy as np
 
@@ -88,3 +90,42 @@ class DataSet(object):
         for attr in ('n_labels', 'x_vocab', 'y_vocab'):
             d[attr] = getattr(self, attr)
         return d
+
+
+class InferenceData(DataSet):
+    def __init__(self, model_dir, stream_or_file):
+        self.model_dir = model_dir
+        self.load_params()
+        self._load_stream_or_file(stream_or_file)
+
+    def load_params(self):
+        param_fn = os.path.join(self.model_dir, 'params.cpk')
+        with open(param_fn) as f:
+            params = cPickle.load(f)
+        for param, val in params.items():
+            if not param.startswith('data.'):
+                continue
+            setattr(self, param[5:], val)  # strip data.
+
+    def load_data(self, stream):
+        self.samples = [line.strip().split('\t')[0] for line in stream]
+        self.maxlen = self.x_shape[1]
+        self.create_matrices()
+
+    def create_matrices(self):
+        x = []
+        for sample in self.samples:
+            x.append(self.pad_sample([self.x_vocab.get(c, 0) for c in sample]))
+        self.x = np.array(x)
+
+    def pad_sample(self, sample):
+        if len(sample) > self.maxlen:
+            sample = sample[-self.maxlen:]
+        return [0] * (self.maxlen-len(sample)) + sample
+
+    def decode(self, labels):
+        self.inv_vocab = {v: k for k, v in self.y_vocab.items()}
+        decoded = []
+        for sample in labels:
+            decoded.append([self.inv_vocab[s] for s in sample])
+        return decoded
