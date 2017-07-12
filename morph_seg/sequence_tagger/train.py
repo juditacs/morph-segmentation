@@ -41,6 +41,8 @@ def parse_args():
                    "results to pandas dataframe")
     p.add_argument('--dataframe-path', type=str, default='results.tsv',
                    help="Path to results dataframe")
+    p.add_argument('--save-model', type=str, default=None,
+                   help="Save trained model to HDF5 file")
     return p.parse_args()
 
 
@@ -143,6 +145,7 @@ class Config(DictConvertible):
         'batch_size': 1024,
         'optimizer': 'Adam',
         'log_results': False,
+        'save_model': None,
     }
     __slots__ = tuple(defaults.keys()) + (
         'cell_type', 'cell_size', 'embedding_size',
@@ -210,8 +213,9 @@ class SequentialTagger(object):
         )
         self.result.val_loss = history.history['val_loss']
         self.result.train_loss = history.history['loss']
+        self.save_model()
         self.evaluate()
-
+        
     def evaluate(self):
         res = self.model.evaluate(self.dataset.x_test, self.dataset.y_test)
         self.result.test_loss = res
@@ -224,6 +228,10 @@ class SequentialTagger(object):
         self.result.test_acc = correct / float(real_char)
         if self.config.log_results is True:
             self.log()
+
+    def save_model(self):
+        if self.config.save_model is not None:
+            self.model.save(self.config.save_model)
 
     def log(self):
         d = self.to_dict()
@@ -243,7 +251,6 @@ class SequentialTagger(object):
             d['data.{}'.format(param)] = val
         for param, val in self.result.to_dict().items():
             d['result.{}'.format(param)] = val
-        d['model.json'] = self.model.to_json()
         return d
 
 
