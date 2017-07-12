@@ -53,7 +53,6 @@ def tag_stream(instream, outstream, tagging_type, columns, conll=False):
             write_sample_line_by_line(output_fields, outstream)
         else:
             write_sample_one_line(output_fields, outstream)
-        outstream.write('\n')
 
 
 def write_sample_line_by_line(output_fields, outstream):
@@ -66,6 +65,7 @@ def write_sample_line_by_line(output_fields, outstream):
         outstream.write('\n'.join(
             '{}\t{}'.format(sample[i], tagging[i]) for i in range(len(sample))
         ) + '\n')
+    outstream.write('\n')
 
 
 def write_sample_one_line(output_fields, outstream):
