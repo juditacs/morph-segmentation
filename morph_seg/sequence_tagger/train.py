@@ -157,7 +157,7 @@ class SequenceTagger(object):
         y_test = np.argmax(self.dataset.y_test, axis=-1)
         mask = (y_test != 0)  # padding mask
         real_char = np.sum(mask)  # exclude padding
-        correct = (np.equal(y_predicted, y_test) & mask)
+        correct = np.sum((np.equal(y_predicted, y_test) & mask))
         self.result.test_acc = correct / float(real_char)
         if self.config.log_results is True:
             self.log()
