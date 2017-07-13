@@ -67,17 +67,18 @@ class Config(DictConvertible):
     """
 
     defaults = {
-        'log_dir': './logs',
+        'log_dir': './logs',  # a subdir is created automatically
         'dataframe_path': 'results.tsv',
         'batch_size': 1024,
         'optimizer': 'Adam',
         'log_results': False,
+        'log_tensorboard': False,
         'save_model_dir': None,
         'layers': 1,
+        'bidirectional': True,
     }
     __slots__ = tuple(defaults.keys()) + (
         'cell_type', 'cell_size', 'embedding_size',
-        'bidirectional', 'layers',
     )
 
     def __init__(self, params):
@@ -91,6 +92,19 @@ class Config(DictConvertible):
             setattr(self, param, value)
         for param, value in params.items():
             setattr(self, param, value)
+        if self.log_tensorboard is True:
+            self.generate_logdir()
+
+    def generate_logdir(self):
+        """Create and empty subdirectory for Tensorboard.
+        The directory is created in the directory specified
+        by log_dir. The first unused 4-digit number is used.
+        """
+        i = 0
+        while os.path.exists(os.path.join(self.log_dir, "{0:04d}".format(i))):
+            i += 1
+        self.log_dir = os.path.join(self.log_dir, "{0:04d}".format(i))
+        os.makedirs(self.log_dir)
 
 
 class Result(DictConvertible):
@@ -130,16 +144,17 @@ class SequenceTagger(object):
         self.model.compile(optimizer=self.config.optimizer, loss='categorical_crossentropy')
 
     def run_train_test(self):
-        ea = EarlyStopping(monitor='val_loss')
-        tb = TensorBoard(log_dir='./logs')
+        callbacks = [EarlyStopping(monitor='val_loss')]
+        if self.config.log_tensorboard:
+            callbacks.append(TensorBoard(log_dir=self.config.log_dir, histogram_freq=1))
         start = datetime.now()
         history = self.model.fit(
             self.dataset.x_train, self.dataset.y_train,
             epochs=10000,
             batch_size=self.config.batch_size,
             validation_split=0.2,
-            callbacks=[ea, tb],
-            verbose=0,
+            callbacks=callbacks,
+            verbose=1,
         )
         self.result.running_time = (
             datetime.now() - start
@@ -148,7 +163,7 @@ class SequenceTagger(object):
         self.result.train_loss = history.history['loss']
         self.evaluate()
         self.save_model()
-        
+
     def evaluate(self):
         res = self.model.evaluate(self.dataset.x_test, self.dataset.y_test)
         self.result.test_loss = res
