@@ -48,8 +48,6 @@ def parse_args():
     return p.parse_args()
 
 
-
-
 class DictConvertible(object):
     __slots__ = tuple()
 
@@ -76,6 +74,7 @@ class Config(DictConvertible):
         'save_model_dir': None,
         'layers': 1,
         'bidirectional': True,
+        'patience': 0,
     }
     __slots__ = tuple(defaults.keys()) + (
         'cell_type', 'cell_size', 'embedding_size',
@@ -131,26 +130,33 @@ class SequenceTagger(object):
                 return LSTM(self.config.cell_size, return_sequences=True)
             elif self.config.cell_type == 'GRU':
                 return GRU(self.config.cell_size, return_sequences=True)
-            raise ValueError("Unknown cell type: {}".format(self.config.cell_type))
+            raise ValueError("Unknown cell type: {}".format(
+                self.config.cell_type))
 
-        input_layer = Input(batch_shape=(None, self.dataset.maxlen), dtype='int8')
-        emb = Embedding(len(self.dataset.x_vocab), self.config.embedding_size)(input_layer)
+        input_layer = Input(batch_shape=(None, self.dataset.maxlen),
+                            dtype='int8')
+        emb = Embedding(len(self.dataset.x_vocab),
+                        self.config.embedding_size)(input_layer)
         layer = Masking(mask_value=0.)(emb)
         for _ in range(self.config.layers):
             if self.config.bidirectional:
                 layer = Bidirectional(create_recurrent_layer())(layer)
-        mlp = TimeDistributed(Dense(len(self.dataset.y_vocab), activation='softmax'))(layer)
+        mlp = TimeDistributed(Dense(len(self.dataset.y_vocab),
+                                    activation='softmax'))(layer)
         self.model = Model(inputs=input_layer, outputs=mlp)
-        self.model.compile(optimizer=self.config.optimizer, loss='categorical_crossentropy')
+        self.model.compile(optimizer=self.config.optimizer,
+                           loss='categorical_crossentropy')
 
     def run_train_test(self):
-        callbacks = [EarlyStopping(monitor='val_loss')]
+        callbacks = [EarlyStopping(monitor='val_loss',
+                                   patience=self.config.patience)]
         if self.config.log_tensorboard:
-            callbacks.append(TensorBoard(log_dir=self.config.log_dir, histogram_freq=1))
+            callbacks.append(TensorBoard(log_dir=self.config.log_dir,
+                                         histogram_freq=1))
         start = datetime.now()
         history = self.model.fit(
             self.dataset.x_train, self.dataset.y_train,
-            epochs=10000,
+            epochs=5000,
             batch_size=self.config.batch_size,
             validation_split=0.2,
             callbacks=callbacks,
