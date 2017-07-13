@@ -27,6 +27,7 @@ ranges = {
     'embedding_size': [10, 20, 30],
     'cell_size': [32, 64, 128, 256, 512],
     'cell_type': ['LSTM', 'GRU'],
+    'patience': [1, 2],
 }
 
 def generate_config():
