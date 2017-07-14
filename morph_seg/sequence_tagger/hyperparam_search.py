@@ -14,7 +14,6 @@ from morph_seg.sequence_tagger.data import DataSet
 from morph_seg.sequence_tagger.train import SequenceTagger, Config
 
 
-
 def parse_args():
     p = ArgumentParser()
     p.add_argument('-N', type=int, default=1,
@@ -23,15 +22,12 @@ def parse_args():
                    help="Location of the dataframe for results")
     return p.parse_args()
 
-ranges = {
-    'embedding_size': [10, 20, 30],
-    'cell_size': [32, 64, 128, 256, 512],
-    'cell_type': ['LSTM', 'GRU'],
-}
 
 def generate_config():
+    from morph_seg.sequence_tagger import hyperparam_ranges
+    hyperparam_ranges = reload(hyperparam_ranges)
     conf = {}
-    for param, prange in ranges.items():
+    for param, prange in hyperparam_ranges.ranges.items():
         conf[param] = random.choice(prange)
     return conf
 
