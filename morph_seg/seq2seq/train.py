@@ -44,7 +44,7 @@ def parse_args():
 def main():
     args = parse_args()
     data = DataSet()
-    if args.train_file:
+    if args.train_file != stdin:
         if args.train_file.endswith('.gz'):
             with gzip.open(args.train_file) as infile:
                 data.read_data_from_stream(infile, limit=args.sample_count)
