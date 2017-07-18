@@ -9,10 +9,10 @@
 from __future__ import unicode_literals
 
 import random
-import pandas as pd
 from os import path
+import pandas as pd
 
-from model import SimpleSeq2seq
+from morph_seg.seq2seq.model import SimpleSeq2seq
 
 
 class Seq2seqExperiment(object):
