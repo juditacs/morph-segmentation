@@ -1,4 +1,4 @@
-# morph-segmentation-experiments
+# Morphological segmentation
 
 Experimenting with supervised morphological segmentation as a seq2seq problem
 
