@@ -89,4 +89,4 @@ ENV/
 .ropeproject
 
 **swp
-sandbox
+sandbox/*
