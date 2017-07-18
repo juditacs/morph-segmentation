@@ -19,6 +19,9 @@ short_almost_correct = u"""ab cd	ab c d"""
 input_lendiff = u"""ab cd	aab cd
 ab cd	aaa b cd"""
 
+input_shorter_output = u"""ab cd	ad"""
+
+
 class BoundaryEvalTest(unittest.TestCase):
     def test_correct(self):
         stats = compute_stats(io.StringIO(correct_input))
@@ -47,6 +50,13 @@ class BoundaryEvalTest(unittest.TestCase):
         self.assertEqual(stats['tn'], 2)
         self.assertEqual(stats['fp'], 2)
         self.assertEqual(stats['fn'], 2)
+
+    def test_lendiff_shorter(self):
+        stats = compute_stats(io.StringIO(input_shorter_output))
+        self.assertEqual(stats['tp'], 0)
+        self.assertEqual(stats['tn'], 2)
+        self.assertEqual(stats['fp'], 0)
+        self.assertEqual(stats['fn'], 1)
 
 if __name__ == '__main__':
     unittest.main()
