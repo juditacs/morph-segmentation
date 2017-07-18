@@ -16,6 +16,10 @@ def parse_args():
     p.add_argument('--word-avg', action='store_true',
                    help="Compute word average instead of"
                    "individual morphemes")
+    p.add_argument('--markdown', action='store_true',
+                   help='Print markdown table')
+    p.add_argument('-v', '--verbose', action='store_true',
+                   help="Output verbose statistics")
     return p.parse_args()
 
 
@@ -85,10 +89,33 @@ def compute_word_average_stats(stream):
     }
 
 
+def print_table(stats, columns):
+    print('\n'.join(
+        '{}\t{}'.format(k, stats.get(k, 0)) for k in columns
+    ))
+    
+def print_markdown_table(stats, columns):
+    print('|  Metric/stat | Value |')
+    print('| ----- | ----- |')
+    print('\n'.join(
+        '| {} | {} | '.format(k, stats.get(k, 0)) for k in columns
+    ))
+
+def list_columns(verbose):
+    columns = []
+    if verbose:
+        columns.extend(['tp', 'fp', 'fn'])
+    columns.extend(['precision', 'recall', 'F-score'])
+    return columns
+
 def main():
     args = parse_args()
     stats = compute_morph_detection_stats(stdin, args.word_avg)
-    print(stats)
+    columns = list_columns(args.verbose)
+    if args.markdown:
+        print_markdown_table(stats, columns)
+    else:
+        print_table(stats, columns)
 
 if __name__ == '__main__':
     main()
