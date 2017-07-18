@@ -200,7 +200,7 @@ class SimpleSeq2seq(object):
                                             dataset.data_dec_valid)
         feed_dict[self.feed_previous] = True
         val_loss = sess.run(self.loss, feed_dict=feed_dict)
-        if iter_no is not None and iter_no % 1000 == 999:
+        if iter_no is not None and iter_no % 100 == 99:
             logging.info('Iter {}, validation loss: {}'.format(
                 iter_no+1, val_loss))
         self.result['val_loss'].append(sum(val_loss))
