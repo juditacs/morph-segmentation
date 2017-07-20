@@ -5,86 +5,34 @@
 # Copyright © 2017 Judit Acs <judit@sch.bme.hu>
 #
 # Distributed under terms of the MIT license.
-from __future__ import unicode_literals
 
 from argparse import ArgumentParser
 from sys import stdin
-import gzip
 
-from tensorflow.python.lib.io import file_io
-
-from experiment import Seq2seqExperiment
-from data import DataSet
+from morph_seg.seq2seq.config import Seq2seqConfig
+from morph_seg.seq2seq.experiment import Seq2seqExperiment
+from morph_seg.seq2seq.data import Seq2seqDataSet
 
 
 def parse_args():
-    p = ArgumentParser(description='Run baseline seq2seq experiments.')
-    p.add_argument('--train-file', type=str, default=stdin,
-                   help="Plain text of gzip file containing the training"
-                   "data. If not specified, STDIN is used")
-    p.add_argument('-r', '--result-file', type=str,
-                   help='Path to result table')
-    p.add_argument('--cell-type', choices=['LSTM', 'GRU'],
-                   default='LSTM')
-    p.add_argument('--sample-count', type=int, default=0,
-                   help="Read at most N samples. If unspecified,"
-                   "the full dataset is read.")
-    p.add_argument('--cell-size', type=int, default=16)
-    p.add_argument('--embedding-size', type=int, default=20)
-    p.add_argument('--early-stopping-patience', type=int, default=10)
-    p.add_argument('--early-stopping-threshold', type=float, default=1e-3)
-    p.add_argument('--layers', type=int, default=1)
-    p.add_argument('--save-test-output', dest='test_output', type=str,
-                   default=None)
-    p.add_argument('--save-model', type=str, default=None,
-                   help="Save model to directory")
+    p = ArgumentParser()
+    p.add_argument('-c', '--config', type=str,
+                  help="Location of YAML config")
+    p.add_argument('-p', '--parameters', type=str,
+                   help="Manually specify parameters."
+                   "This option allows overriding parameters"
+                   "from the config file."
+                   "Format: param1=val1,param2=val2")
     return p.parse_args()
 
 
 def main():
     args = parse_args()
-    data = DataSet()
-    if args.train_file != stdin:
-        if args.train_file.endswith('.gz'):
-            with gzip.open(args.train_file) as infile:
-                data.read_data_from_stream(infile, limit=args.sample_count)
-        else:
-            with file_io.FileIO(args.train_file, mode='w+') as infile:
-                data.read_data_from_stream(infile, limit=args.sample_count)
-    else:
-        data.read_data_from_stream(stdin, limit=args.sample_count)
-    data.vectorize_samples()
-    data.split_train_valid_test()
-    logging.info("Train data shape: encoder - {}, decoder - {}".format(
-        data.data_enc_train.shape,
-        data.data_dec_train.shape,
-    ))
-    logging.info("Valid data shape: encoder - {}, decoder - {}".format(
-        data.data_enc_valid.shape,
-        data.data_dec_valid.shape,
-    ))
-    logging.info("Test data shape: encoder - {}, decoder - {}".format(
-        data.data_enc_test.shape,
-        data.data_dec_test.shape,
-    ))
-    conf = {
-        'cell_type': args.cell_type,
-        'cell_size': args.cell_size,
-        'embedding_size': args.embedding_size,
-        'patience': args.early_stopping_patience,
-        'val_loss_th': args.early_stopping_threshold,
-    }
-    exp = Seq2seqExperiment(data, args.result_file, model_dir=args.save_model,
-                            conf=conf)
-    logging.info("Starting experiment")
-    exp.run(save_stats=False)
-    logging.info('Test loss: {}'.format(exp.model.result['test_loss'][-1]))
-    if args.test_output is not None:
-        with open(args.test_output, 'w') as f:
-            exp.save_test_output(f, include_test_input=True)
+    cfg = Seq2seqConfig.load_from_yaml(args.config, param_str=args.parameters)
+    print(cfg)
+    dataset = Seq2seqDataSet(cfg, stdin)
+    exp = Seq2seqExperiment(cfg, dataset)
+    #exp.run_train_test()
 
 if __name__ == '__main__':
-    import logging
-    log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    logging.basicConfig(level=logging.INFO, format=log_fmt)
     main()

@@ -1,0 +1,9 @@
+reverse_input: false
+embedding_dim: 10
+bidirectional: true
+cell_type: LSTM
+cell_size: 8
+num_residual: 1
+num_layers: 2
+attention_type: luong
+attention_layer_size: 16
