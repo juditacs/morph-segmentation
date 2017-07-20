@@ -1,7 +1,6 @@
 #! /usr/bin/env python
 
-
-from distutils.core import setup
+from setuptools import find_packages, setup
 
 
 setup(
@@ -10,7 +9,7 @@ setup(
     description="Morphological segmentation experiments",
     author='Judit Acs',
     author_email='judit@sch.bme.hu',
-    packages=['morph_seg'],
+    packages=find_packages(),
     package_dir={'': '.'},
     provides=['morph_seg'],
 )
