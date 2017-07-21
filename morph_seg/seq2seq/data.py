@@ -11,10 +11,15 @@ import numpy as np
 from morph_seg.data import DataSet
 
 
-class TrainingBatch(namedtuple("TrainingBatch",
-    ('input_enc', 'input_len_enc', 'input_dec', 'input_len_dec',
-    'target', 'target_len')),
-): pass
+class Batch(object):
+    def __init__(self, input_enc, input_len_enc, input_dec, input_len_dec,
+                 target, target_len):
+        self.input_enc = input_enc
+        self.input_len_enc = input_len_enc
+        self.input_dec = input_dec
+        self.input_len_dec = input_len_dec
+        self.target = target
+        self.target_len = target_len
 
 
 class Seq2seqDataSet(DataSet):
@@ -63,7 +68,7 @@ class Seq2seqDataSet(DataSet):
         return self.__get_training_batch(indices)
 
     def __get_training_batch(self, indices):
-        return TrainingBatch(
+        return Batch(
             input_enc=self.data_enc[indices],
             input_dec=self.data_dec[indices],
             input_len_enc=self.len_enc[indices],
@@ -71,3 +76,25 @@ class Seq2seqDataSet(DataSet):
             target=self.target[indices],
             target_len=self.target_len[indices],
         )
+
+    def get_test_data_batches(self):
+        for i in range(0, len(self.test_idx)-self.config.batch_size+1, self.config.batch_size):
+            start = i
+            end = i+self.config.batch_size
+            indices = self.test_idx[start:end]
+            batch = self.__get_training_batch(indices)
+            target = np.zeros(shape=(end-start, self.target.shape[1]))
+            target[:, 0] = self.SOS
+            target_len = np.ones(shape=(target.shape[0],)) * target.shape[1]
+            batch.target = target
+            batch.target_len = target_len
+            yield batch
+
+    def decode(self, indices):
+        delimiter = self.config.delimiter
+        delimiter = '' if delimiter is None else delimiter
+        decoded = []
+        for sample in indices:
+            dec = [self.vocab_dec.inv_vocab[s] for s in sample]
+            decoded.append(delimiter.join(dec))
+        return decoded

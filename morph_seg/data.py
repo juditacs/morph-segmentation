@@ -19,6 +19,7 @@ class Vocabulary(object):
         self.default = default
         self.data['SOS'] = Vocabulary.SOS
         self.data['EOS'] = Vocabulary.EOS
+        self._inv_vocab = {}
 
     def __setitem__(self, key, value):
         if self.frozen is False:
@@ -40,6 +41,12 @@ class Vocabulary(object):
 
     def __len__(self):
         return len(self.data)
+
+    @property
+    def inv_vocab(self):
+        if len(self._inv_vocab) != len(self.data):
+            self._inv_vocab = {v: k for k, v in self.data.items()}
+        return self._inv_vocab
 
 
 class DataSet(object):

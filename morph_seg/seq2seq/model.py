@@ -5,6 +5,7 @@
 # Copyright © 2017 Judit Acs <judit@sch.bme.hu>
 #
 # Distributed under terms of the MIT license.
+import os
 import tensorflow as tf
 from tensorflow.python.layers import core as layers_core
 
@@ -43,7 +44,6 @@ class Seq2seqModel(object):
         self.target = tf.placeholder(
             shape=[None, self.dataset.maxlen_dec], dtype=tf.int32)
         self.target_len = tf.placeholder(shape=[None], dtype=tf.int32)
-        #self.output_dec = tf.concat([self.dataset.SOS, self.input_dec], 1)
 
     def create_encoder(self):
         self.create_embedding()
@@ -152,7 +152,7 @@ class Seq2seqModel(object):
         gradients = tf.gradients(self.loss, params)
         self.update = self.optimizer.apply_gradients(zip(gradients, params))
 
-        self.patience = self.config.patience
+        self.early_cnt = self.config.patience
 
     def create_optimizer(self):
         self.optimizer = getattr(tf.train, self.config.optimizer)(
@@ -177,9 +177,9 @@ class Seq2seqModel(object):
 
             self.result.set_end()
 
-            if test_ratio > 0:
-                self.run_test(sess)
             if self.config.save_model:
+                if test_ratio > 0:
+                    self.run_and_save_test(sess)
                 self.save_everything(sess)
 
     def run_train_step(self, sess):
@@ -193,7 +193,7 @@ class Seq2seqModel(object):
             self.target_len: batch.target_len,
         }
         _, loss = sess.run([self.update, self.loss], feed_dict=feed_dict)
-        self.result.train_loss.append(loss)
+        self.result.train_loss.append(float(loss))
 
     def run_validation(self, sess):
         batch = self.dataset.get_val_batch()
@@ -206,18 +206,54 @@ class Seq2seqModel(object):
             self.target_len: batch.target_len,
         }
         _, loss = sess.run([self.update, self.loss], feed_dict=feed_dict)
-        self.result.val_loss.append(loss)
+        self.result.val_loss.append(float(loss))
 
     def do_early_stopping(self):
         if len(self.result.val_loss) < self.config.patience:
             return False
+        do_stop = False
+        try:
+            if abs(self.result.val_loss[-1] - self.result.val_loss[-2]) \
+                    < self.config.early_stopping_threshold:
+                self.early_cnt -= 1
+                if self.early_cnt == 0:
+                    do_stop = True
+            else:
+                self.early_cnt = self.config.patience
+        except IndexError:
+            pass
+        return do_stop
 
-
-        return False
-
-    def run_test(self, sess):
-        pass
+    def run_and_save_test(self, sess):
+        decoded_in = []
+        decoded_out = []
+        for batch in self.dataset.get_test_data_batches():
+            feed_dict = {
+                self.input_enc: batch.input_enc,
+                self.input_len_enc: batch.input_len_enc,
+                self.input_dec: batch.input_dec,
+                self.input_len_dec: batch.input_len_dec,
+                self.target: batch.target,
+                self.target_len: batch.target_len,
+            }
+            sess.run(
+                [self.encoder_input, self.decoder_emb_input], feed_dict=feed_dict)
+            logits = sess.run(self.logits, feed_dict=feed_dict)
+            inp = self.dataset.decode(batch.input_enc)
+            out = self.dataset.decode(logits.argmax(axis=-1))
+            decoded_in.extend(inp)
+            decoded_out.extend(out)
+        with open(os.path.join(self.config.model_dir, 'test_output'), 'w') as f:
+            f.write('\n'.join(
+                '{}\t{}'.format(decoded_in[i], decoded_out[i])
+                for i in range(len(decoded_in))
+            ))
 
     def save_everything(self, sess):
         saver = tf.train.Saver()
-        pass
+        model_fn = os.path.join(self.config.model_dir, 'tf', 'model')
+        saver.save(sess, model_fn)
+        config_fn = os.path.join(self.config.model_dir, 'config.yaml')
+        self.config.save_to_yaml(config_fn)
+        result_fn = os.path.join(self.config.model_dir, 'result.yaml')
+        self.result.save_to_yaml(result_fn)
