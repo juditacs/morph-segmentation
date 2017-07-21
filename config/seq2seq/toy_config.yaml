@@ -12,7 +12,7 @@ optimizer_kwargs:
   learning_rate: 0.1
 
 # training options
-batch_size: 2 
+batch_size: 50
 max_epochs: 10
 early_stopping_threshold: 0.1
 patience: 2
