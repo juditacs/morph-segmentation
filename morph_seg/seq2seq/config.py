@@ -25,6 +25,8 @@ class Seq2seqConfig(Config):
         'attention_layer_size': 16,
         'is_training': True,
         'batch_size': 16,
+        'optimizer': 'AdamOptimizer',
+        'optimizer_kwargs': {},
     })
     __slots__ = tuple(defaults) + Config.__slots__ + (
         'maxlen_enc', 'maxlen_dec',
@@ -47,4 +49,8 @@ class Seq2seqConfig(Config):
             raise ConfigError(
                 "The number of residual connection cannot be "
                 "greater than layers / 2"
+            )
+        if self.attention_type not in ('luong', 'bahdanau'):
+            raise ConfigError(
+                "Attention type most be luong or bahdanau"
             )

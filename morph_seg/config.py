@@ -17,6 +17,12 @@ class Config(object):
         'vocab_path': None,
         'share_vocab': False,
         'frozen_vocab': False,
+        'batch_size': 1024,
+        'max_epochs': 10000,
+        'early_stopping_threshold': 0.001,
+        'patience': 2,
+        'save_model': True,
+        'model_dir': None,
     }
 
     __slots__ = tuple(defaults) + (

@@ -10,10 +10,15 @@ import numpy as np
 
 
 class Vocabulary(object):
+    SOS = 1
+    EOS = 2
+
     def __init__(self, data, frozen=False, default=0):
         self.frozen = False
         self.data = data
         self.default = default
+        self.data['SOS'] = Vocabulary.SOS
+        self.data['EOS'] = Vocabulary.EOS
 
     def __setitem__(self, key, value):
         if self.frozen is False:
@@ -38,6 +43,7 @@ class Vocabulary(object):
 
 
 class DataSet(object):
+
     def __init__(self, config, stream):
         self.config = config
         self.load_or_create_vocab()
@@ -76,12 +82,14 @@ class DataSet(object):
     def set_maxlens(self):
         if self.config.derive_maxlen is True:
             self.maxlen_enc = max(len(s[0]) for s in self.samples)
-            self.maxlen_dec = max(len(s[0]) for s in self.samples)
+            self.maxlen_dec = max(len(s[1]) for s in self.samples)
         else:
             self.maxlen_enc = self.config.maxlen_enc
             self.maxlen_dec = self.config.maxlen_dec
 
     def featurize(self):
+        self.len_enc = np.array([len(s[0]) for s in self.samples])
+        self.len_dec = np.array([len(s[1]) for s in self.samples])
         data_enc = []
         data_dec = []
         for enc, dec in self.samples:
@@ -106,22 +114,18 @@ class DataSet(object):
         if N * test_ratio < 1:
             test_ratio = 1.0 / N
         train_end = int((1 - valid_ratio - test_ratio) * N)
-        valid_end = int((1 - test_ratio) * N)
+        val_end = int((1 - test_ratio) * N)
         shuf_ind = np.arange(N)
         np.random.shuffle(shuf_ind)
         self.train_idx = shuf_ind[:train_end]
-        self.valid_idx = shuf_ind[train_end:valid_end]
-        self.test_idx = shuf_ind[valid_end:]
+        self.val_idx = shuf_ind[train_end:val_end]
+        self.test_idx = shuf_ind[val_end:]
         self.data_enc_train = self.data_enc[self.train_idx]
         self.data_dec_train = self.data_dec[self.train_idx]
-        self.data_enc_valid = self.data_enc[self.valid_idx]
-        self.data_dec_valid = self.data_dec[self.valid_idx]
+        self.data_enc_val = self.data_enc[self.val_idx]
+        self.data_dec_val = self.data_dec[self.val_idx]
         self.data_enc_test = self.data_enc[self.test_idx]
         self.data_dec_test = self.data_dec[self.test_idx]
-
-    def get_training_batch(self, batch_size):
-        indices = np.random.choice(self.train_idx, batch_size)
-        return self.data_enc_train[indices], self.data_dec_train[indices]
 
     @property
     def vocab_enc_size(self):
@@ -130,3 +134,11 @@ class DataSet(object):
     @property
     def vocab_dec_size(self):
         return len(self.vocab_dec)
+
+    @property
+    def EOS(self):
+        return self.vocab_dec['EOS']
+
+    @property
+    def SOS(self):
+        return self.vocab_dec['SOS']

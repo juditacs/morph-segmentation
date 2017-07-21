@@ -16,4 +16,4 @@ class Seq2seqExperiment(object):
         self.model = Seq2seqModel(config, dataset)
 
     def run_train_test(self):
-        pass
+        self.model.run_train_test()

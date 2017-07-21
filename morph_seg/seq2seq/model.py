@@ -8,6 +8,8 @@
 import tensorflow as tf
 from tensorflow.python.layers import core as layers_core
 
+from morph_seg.seq2seq.result import Seq2seqResult
+
 
 class Seq2seqModel(object):
     def __init__(self, config, dataset):
@@ -20,6 +22,8 @@ class Seq2seqModel(object):
 
         self.create_train_ops()
 
+        self.result = Seq2seqResult()
+
     def create_cell(self, cell_size=None):
         if cell_size is None:
             cell_size = self.config.cell_size
@@ -29,12 +33,17 @@ class Seq2seqModel(object):
 
     def create_placeholders(self):
         self.input_enc = tf.placeholder(
-            shape=[None, self.dataset.maxlen_enc], dtype=tf.int64)
-        self.input_len_enc = tf.placeholder(shape=[None], dtype=tf.int64)
+            shape=[None, self.dataset.maxlen_enc], dtype=tf.int32)
+        self.input_len_enc = tf.placeholder(shape=[None], dtype=tf.int32)
 
         self.input_dec = tf.placeholder(
-            shape=[None, self.dataset.maxlen_dec], dtype=tf.int64)
-        self.input_len_dec = tf.placeholder(shape=[None], dtype=tf.int64)
+            shape=[None, self.dataset.maxlen_dec], dtype=tf.int32)
+        self.input_len_dec = tf.placeholder(shape=[None], dtype=tf.int32)
+
+        self.target = tf.placeholder(
+            shape=[None, self.dataset.maxlen_dec], dtype=tf.int32)
+        self.target_len = tf.placeholder(shape=[None], dtype=tf.int32)
+        #self.output_dec = tf.concat([self.dataset.SOS, self.input_dec], 1)
 
     def create_encoder(self):
         self.create_embedding()
@@ -57,7 +66,7 @@ class Seq2seqModel(object):
     def __create_rnn_block(self, cell_size):
         num_residual = self.config.num_residual
         cells = []
-        for i in range(self.config.num_layers):
+        for i in range(int(self.config.num_layers)):
             if i >= self.config.num_layers-num_residual:
                 cells.append(tf.contrib.rnn.ResidualWrapper(self.create_cell(cell_size)))
             else:
@@ -96,12 +105,6 @@ class Seq2seqModel(object):
         self.decoder_emb_input = tf.nn.embedding_lookup(
             self.embedding_dec, self.input_dec
         )
-        if self.config.attention_type is not None:
-            self.create_attention_decoder()
-        else:
-            self.create_simple_decoder()
-
-    def create_attention_decoder(self):
         self.create_attention()
         self.decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
             self.decoder_cell,
@@ -109,12 +112,12 @@ class Seq2seqModel(object):
             attention_layer_size=self.config.attention_layer_size,
             alignment_history=self.config.is_training,
         )
-        dec_init = self.decoder_cell.zero_state(self.config.batch_size, tf.float32).clone(cell_state=self.encoder_state)
+        dec_init = self.decoder_cell.zero_state(self.config.batch_size, tf.float32) #.clone(cell_state=self.encoder_state)
         helper = tf.contrib.seq2seq.TrainingHelper(self.decoder_emb_input,
                                                    self.input_len_dec)
         decoder = tf.contrib.seq2seq.BasicDecoder(self.decoder_cell,
                                                   helper, dec_init)
-        outputs, final = tf.contrib.seq2seq.dynamic_decode(decoder)
+        outputs, final, _ = tf.contrib.seq2seq.dynamic_decode(decoder)
         output_proj = layers_core.Dense(self.dataset.vocab_dec_size,
                                         name="output_proj")
         self.logits = output_proj(outputs.rnn_output)
@@ -126,15 +129,95 @@ class Seq2seqModel(object):
                 self.encoder_outputs,
                 memory_sequence_length=self.input_len_enc
             )
-        #TODO other types
-
-    def create_simple_decoder(self):
-        pass
+        elif self.config.attention_type == 'bahdanau':
+            self.attention = tf.contrib.seq2seq.BahdanauAttention(
+                self.config.cell_size,
+                self.encoder_outputs,
+                memory_sequence_length=self.input_len_enc
+            )
+        else:
+            raise ValueError("Unknown attention type: {}".format(
+                self.config.attention_type))
 
     def create_train_ops(self):
+        max_time = tf.shape(self.logits)[1]
         crossent = tf.nn.sparse_softmax_cross_entropy_with_logits(
-            labels=self.input_dec, logits=self.logits
+            labels=self.input_dec[:, :max_time], logits=self.logits
         )
         target_weights = tf.sequence_mask(
-            self.input_len_dec, tf.shape(self.input_dec)[1], tf.float32)
-        loss = tf.reduce_sum(crossent * target_weights) / tf.to_float(self.dataset.maxlen_dec)
+            self.input_len_dec, max_time, tf.float32)
+        self.loss = tf.reduce_sum(crossent * target_weights) / tf.to_float(self.config.batch_size)
+        self.create_optimizer()
+        params = tf.trainable_variables()
+        gradients = tf.gradients(self.loss, params)
+        self.update = self.optimizer.apply_gradients(zip(gradients, params))
+
+        self.patience = self.config.patience
+
+    def create_optimizer(self):
+        self.optimizer = getattr(tf.train, self.config.optimizer)(
+            **self.config.optimizer_kwargs)
+
+    def run_train_test(self, test_ratio=.1):
+        self.dataset.split_train_valid_test(
+            valid_ratio=.1, test_ratio=test_ratio)
+        with tf.Session() as sess:
+            self.result.set_start()
+            sess.run(tf.global_variables_initializer())
+
+            for iter_no in range(int(self.config.max_epochs)):
+                self.run_train_step(sess)
+                self.run_validation(sess)
+                if self.do_early_stopping():
+                    self.result.early_topped = True
+                    break
+            else:
+                self.result.early_topped = False
+            self.result.epochs_run = iter_no + 1
+
+            self.result.set_end()
+
+            if test_ratio > 0:
+                self.run_test(sess)
+            if self.config.save_model:
+                self.save_everything(sess)
+
+    def run_train_step(self, sess):
+        batch = self.dataset.get_training_batch()
+        feed_dict = {
+            self.input_enc: batch.input_enc,
+            self.input_len_enc: batch.input_len_enc,
+            self.input_dec: batch.input_dec,
+            self.input_len_dec: batch.input_len_dec,
+            self.target: batch.target,
+            self.target_len: batch.target_len,
+        }
+        _, loss = sess.run([self.update, self.loss], feed_dict=feed_dict)
+        self.result.train_loss.append(loss)
+
+    def run_validation(self, sess):
+        batch = self.dataset.get_val_batch()
+        feed_dict = {
+            self.input_enc: batch.input_enc,
+            self.input_len_enc: batch.input_len_enc,
+            self.input_dec: batch.input_dec,
+            self.input_len_dec: batch.input_len_dec,
+            self.target: batch.target,
+            self.target_len: batch.target_len,
+        }
+        _, loss = sess.run([self.update, self.loss], feed_dict=feed_dict)
+        self.result.val_loss.append(loss)
+
+    def do_early_stopping(self):
+        if len(self.result.val_loss) < self.config.patience:
+            return False
+
+
+        return False
+
+    def run_test(self, sess):
+        pass
+
+    def save_everything(self, sess):
+        saver = tf.train.Saver()
+        pass
