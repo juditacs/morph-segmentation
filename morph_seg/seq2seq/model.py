@@ -176,7 +176,7 @@ class Seq2seqModel(object):
                                  'valid loss: {}'.format(
                                      iter_no+1, self.result.val_loss[-1]))
                     break
-                if iter_no % 100 == 99:
+                if iter_no % 10 == 9:
                     logging.info('Iter {}, val loss: {}'.format(
                         iter_no+1, self.result.val_loss[-1]))
             else:

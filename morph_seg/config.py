@@ -107,6 +107,12 @@ class Config(object):
     def save_to_yaml(self, filename):
         cfg = {}
         for key in self.__slots__:
-            cfg[key] = getattr(self, key, None)
+            if key == 'train_file':
+                if isinstance(self.train_file, str):
+                    cfg['train_file'] = self.train_file
+                else:
+                    cfg['train_file'] = 'stdin'
+            else:
+                cfg[key] = getattr(self, key, None)
         with open(filename, 'w') as f:
             yaml.dump(cfg, f)
