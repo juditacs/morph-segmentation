@@ -1,9 +1,22 @@
-reverse_input: false
+reverse_input: true
 embedding_dim: 10
-bidirectional: true
+bidirectional: false
 cell_type: LSTM
 cell_size: 8
-num_residual: 1
-num_layers: 2
+num_residual: 0
+num_layers: 1
 attention_type: luong
 attention_layer_size: 16
+optimizer: AdamOptimizer
+optimizer_kwargs:
+  learning_rate: 0.1
+
+# training options
+batch_size: 2 
+max_epochs: 10
+early_stopping_threshold: 0.1
+patience: 2
+
+# saving options
+save_model: True
+model_dir: models/toy
