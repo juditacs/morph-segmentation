@@ -1,17 +1,17 @@
-# morph-segmentation-experiments
+# Morphological segmentation
 
-Experimenting with supervised morphological segmentation as a seq2seq problem
+Experimenting with supervised morphological segmentation as a seq2seq problem.
 
-Currently two supervised models are supported: seq2seq and sequence tagger (LSTM) baseline.
+Currently two supervised models are supported: seq2seq and LSTM (baseline).
 
-# Seq2seq models
+## Setup
 
-The seq2seq source code is located in the `morph_seg/seq2seq` directory.
-It uses Tensorflow's `legacy_seq2seq`.
+    pip install -r requirements.txt
+    python setup.py install
 
 ## Input data
 
-Tre train script (`train.py`) expects the training input as either as its only positional argument or it reads it from standard input if no positional argument is provided.
+Tre training scripts (`train.py`) expect the training input as either as its only positional argument or it reads it from standard input if no positional argument is provided.
 Gzip files are supported.
 The training data is expected to have one line per sample.
 The input and the output sequences should be separated by TAB.
@@ -23,15 +23,20 @@ autót	autó t
 ablakokat	ablak ok at
 ~~~
 
-The inference script also reads from the standard input and expects one sample per line.
+The inference scripts (`inference.py`) also read from the standard input and expects one sample per line.
 
-## Training your own model
+## seq2seq
+
+The seq2seq source code is located in the `morph_seg/seq2seq` directory.
+It uses Tensorflow's `legacy_seq2seq`.
+
+### Training your own model
 
 ~~~
-cat training_data | python morph_seg/train.py --save-test-output test_output --save-model model_directory --cell-size 64 --result-file results.tsv
+cat training_data | python morph_seg/seq2seq/train.py --save-test-output test_output --save-model model_directory --cell-size 64 --result-file results.tsv
 ~~~
 
-This will train a seq2seq model with the default arguments listed in the source file (train.py).
+This will train a seq2seq model with the default arguments listed in `train.py`:
 
 | argument | default | explanation |
 | ----- | ----- | ------ |
@@ -49,13 +54,30 @@ Note that the first three arguments' default is `None`.
 This means that unless specified, they do not write to file.
 They are not linked though, any one can be left out.
 
-## Using your model for inference
+### Using your model for inference
 
 `train.py` saves everything needed for inference to the directory specified by the `save-model` argument.
 Inference can be run like this:
 
 ~~~
-cat test_data | python morph_seg/inference.py --model-dir your_saved_model
+cat test_data | python morph_seg/seq2seq/inference.py --model-dir your_saved_model
 ~~~
 
 Note that longer samples than the maximum length in the training data will be trimmed from their beginning.
+
+## LSTM
+
+The LSTM source code is located in the `morph_seg/sequence_tagger` directory.
+It uses Keras's `LSTM`, `GRU` modules, and the usage is basically identical to the seq2seq model above.
+
+### Training your own model
+
+~~~
+cat training_data | python morph_seg/sequence_tagger/train.py --save-test-output test_output --save-model model_directory --cell-size 64 --result-file results.tsv
+~~~
+
+### Using your model for inference
+
+~~~
+cat test_data | python morph_seg/sequence_tagger/inference.py --model-dir your_saved_model
+~~~

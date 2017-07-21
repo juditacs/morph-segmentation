@@ -10,6 +10,7 @@ import unittest
 import io
 
 from morph_seg.evaluation.boundary_detection import compute_stats
+from morph_seg.evaluation.morpheme_detection import compute_morph_detection_stats
 
 correct_input = u"""ab cd	ab cd
 e fgh	e fgh"""
@@ -21,6 +22,25 @@ ab cd	aaa b cd"""
 
 input_shorter_output = u"""ab cd	ad"""
 
+
+class MorphDetectionTest(unittest.TestCase):
+    def test_correct(self):
+        stats = compute_morph_detection_stats(io.StringIO(correct_input))
+        self.assertEqual(stats['precision'], 1.0)
+        self.assertEqual(stats['recall'], 1.0)
+        self.assertEqual(stats['F-score'], 1.0)
+
+    def test_short_almost_correct(self):
+        stats = compute_morph_detection_stats(
+            io.StringIO(short_almost_correct))
+        self.assertEqual(stats['precision'], 1.0/3)
+        self.assertEqual(stats['recall'], 0.5)
+
+    def test_word_average(self):
+        stats = compute_morph_detection_stats(
+            io.StringIO(input_lendiff), word_average=True)
+        self.assertEqual(stats['precision'], (0.5+1.0/3)/2)
+        self.assertEqual(stats['recall'], (0.5+0.5)/2)
 
 class BoundaryEvalTest(unittest.TestCase):
     def test_correct(self):

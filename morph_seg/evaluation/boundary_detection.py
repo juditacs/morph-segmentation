@@ -34,7 +34,10 @@ def parse_args():
 def compute_stats(stream, match_from_start=False):
     stats = defaultdict(int)
     for line in stream:
-        gold, guess, *_ = line.rstrip('\n').split('\t')
+        try:
+            gold, guess  = line.decode('utf8').rstrip('\n').split('\t')[:2]
+        except AttributeError:
+            gold, guess = line.rstrip('\n').split('\t')[:2]
         guess = match_words(gold, guess, match_from_start, stats)
         update_stats(gold, guess, stats)
     compute_summary(stats)
