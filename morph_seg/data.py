@@ -79,6 +79,10 @@ class DataSet(object):
             enc, dec = line.rstrip('\n').split('\t')[:2]
             if self.is_too_long(enc, dec):
                 continue
+            if self.config.reverse_input:
+                enc = enc[::-1]
+            if self.config.reverse_output:
+                dec = dec[::-1]
             self.samples.append((enc, dec))
         self.set_maxlens()
         self.featurize()

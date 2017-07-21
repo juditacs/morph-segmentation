@@ -24,6 +24,8 @@ class Config(object):
         'patience': 2,
         'save_model': True,
         'model_dir': None,
+        'reverse_input': False,
+        'reverse_output': False,
     }
 
     __slots__ = tuple(defaults) + (

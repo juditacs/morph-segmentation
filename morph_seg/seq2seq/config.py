@@ -13,8 +13,6 @@ class Seq2seqConfig(Config):
     defaults = Config.defaults
     defaults.update({
         'derive_maxlen': True,
-        'reverse_input': False,
-        'reverse_output': False,
         'share_vocab': True,
         'bidirectional': False,
         'cell_type': 'LSTM',
