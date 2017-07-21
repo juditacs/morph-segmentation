@@ -6,6 +6,8 @@
 #
 # Distributed under terms of the MIT license.
 import os
+import gzip
+import yaml
 import numpy as np
 
 
@@ -51,10 +53,18 @@ class Vocabulary(object):
 
 class DataSet(object):
 
-    def __init__(self, config, stream):
+    def __init__(self, config, stream_or_file):
         self.config = config
         self.load_or_create_vocab()
-        self.load_data_from_stream(stream)
+        if isinstance(stream_or_file, str):
+            if stream_or_file.endswith('.gz'):
+                with gzip.open(stream_or_file) as stream:
+                    self.load_data_from_stream(stream)
+            else:
+                with open(stream_or_file) as stream:
+                    self.load_data_from_stream(stream)
+        else:
+            self.load_data_from_stream(stream_or_file)
 
     def load_or_create_vocab(self):
         if self.config.vocab_enc_path and \
@@ -153,3 +163,13 @@ class DataSet(object):
     @property
     def SOS(self):
         return self.vocab_dec['SOS']
+
+    def params_to_yaml(self, filename):
+        d = {
+            'enc_shape': list(self.data_enc.shape),
+            'dec_shape': list(self.data_dec.shape),
+            'vocab_enc': dict(self.vocab_enc.data),
+            'vocab_dec': dict(self.vocab_dec.data),
+        }
+        with open(filename, 'w') as f:
+            yaml.dump(d, f)

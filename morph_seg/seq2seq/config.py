@@ -32,6 +32,7 @@ class Seq2seqConfig(Config):
     )
 
     def set_derivable_params(self):
+        super().set_derivable_params()
         if self.share_vocab:
             self.embedding_dim_enc = self.embedding_dim
             self.embedding_dim_dec = self.embedding_dim

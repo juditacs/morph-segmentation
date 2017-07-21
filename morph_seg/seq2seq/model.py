@@ -6,6 +6,8 @@
 #
 # Distributed under terms of the MIT license.
 import os
+import logging
+
 import tensorflow as tf
 from tensorflow.python.layers import core as layers_core
 
@@ -170,7 +172,13 @@ class Seq2seqModel(object):
                 self.run_validation(sess)
                 if self.do_early_stopping():
                     self.result.early_topped = True
+                    logging.info('Early stopping at iteration {}, '
+                                 'valid loss: {}'.format(
+                                     iter_no+1, self.result.val_loss[-1]))
                     break
+                if iter_no % 100 == 99:
+                    logging.info('Iter {}, val loss: {}'.format(
+                        iter_no+1, self.result.val_loss[-1]))
             else:
                 self.result.early_topped = False
             self.result.epochs_run = iter_no + 1
@@ -257,3 +265,6 @@ class Seq2seqModel(object):
         self.config.save_to_yaml(config_fn)
         result_fn = os.path.join(self.config.model_dir, 'result.yaml')
         self.result.save_to_yaml(result_fn)
+
+        data_params_fn = os.path.join(self.config.model_dir, 'dataset.yaml')
+        self.dataset.params_to_yaml(data_params_fn)

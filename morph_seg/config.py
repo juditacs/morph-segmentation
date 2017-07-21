@@ -29,6 +29,7 @@ class Config(object):
     }
 
     __slots__ = tuple(defaults) + (
+        'train_file',
     )
 
     def __init__(self, cfg_dict=None, param_str=None, **kwargs):
@@ -52,7 +53,8 @@ class Config(object):
         self.create_model_dir()
 
     def set_derivable_params(self):
-        pass
+        if isinstance(self.train_file, str):
+            self.train_file = os.path.abspath(self.train_file)
 
     def parse_and_set_param_str(self, param_str):
         if param_str is None:

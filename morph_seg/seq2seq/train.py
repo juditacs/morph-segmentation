@@ -17,6 +17,7 @@ from morph_seg.seq2seq.data import Seq2seqDataSet
 def parse_args():
     """Set up and parse arguments"""
     p = ArgumentParser()
+    p.add_argument('-t', '--train-file', default=stdin)
     p.add_argument('-c', '--config', type=str,
                   help="Location of YAML config")
     p.add_argument('-p', '--parameters', type=str,
@@ -29,11 +30,15 @@ def parse_args():
 
 def main():
     args = parse_args()
-    cfg = Seq2seqConfig.load_from_yaml(args.config, param_str=args.parameters)
+    cfg = Seq2seqConfig.load_from_yaml(args.config, train_file=args.train_file,
+                                       param_str=args.parameters)
     #print(cfg)
-    dataset = Seq2seqDataSet(cfg, stdin)
+    dataset = Seq2seqDataSet(cfg, args.train_file)
     model = Seq2seqModel(cfg, dataset)
     model.run_train_test()
 
 if __name__ == '__main__':
+    import logging
+    log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    logging.basicConfig(level=logging.INFO, format=log_fmt)
     main()
