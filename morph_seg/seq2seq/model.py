@@ -176,9 +176,9 @@ class Seq2seqModel(object):
                                  'valid loss: {}'.format(
                                      iter_no+1, self.result.val_loss[-1]))
                     break
-                if iter_no % 10 == 9:
-                    logging.info('Iter {}, val loss: {}'.format(
-                        iter_no+1, self.result.val_loss[-1]))
+                if iter_no % 100 == 90:
+                    logging.info('Iter {}, train loss: {}, val loss: {}'.format(
+                        iter_no+1, self.result.train_loss[-1], self.result.val_loss[-1]))
             else:
                 self.result.early_topped = False
             self.result.epochs_run = iter_no + 1
