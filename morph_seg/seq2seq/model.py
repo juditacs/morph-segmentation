@@ -144,10 +144,10 @@ class Seq2seqModel(object):
     def create_train_ops(self):
         max_time = tf.shape(self.logits)[1]
         crossent = tf.nn.sparse_softmax_cross_entropy_with_logits(
-            labels=self.input_dec[:, :max_time], logits=self.logits
+            labels=self.target[:, :max_time], logits=self.logits
         )
         target_weights = tf.sequence_mask(
-            self.input_len_dec, max_time, tf.float32)
+            self.target_len, max_time, tf.float32)
         self.loss = tf.reduce_sum(crossent * target_weights) / tf.to_float(self.config.batch_size)
         self.create_optimizer()
         params = tf.trainable_variables()
