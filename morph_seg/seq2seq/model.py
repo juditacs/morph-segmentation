@@ -77,7 +77,6 @@ class Seq2seqModel(object):
             return tf.contrib.rnn.MultiRNNCell(cells)
         return cells[0]
 
-
     def create_unidirectional_encoder(self):
         cells = self.__create_rnn_block(self.config.cell_size)
         o, e = tf.nn.dynamic_rnn(
