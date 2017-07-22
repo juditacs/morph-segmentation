@@ -136,17 +136,17 @@ class DataSet(object):
         self.data_enc = np.array(data_enc)
         self.data_dec = np.array(data_dec)
 
-    def split_train_valid_test(self, valid_ratio=.1, test_ratio=.1):
-        N = self.data_enc.shape[0]
+    def split_train_valid_test(self, valid_ratio=.1, test_size=0):
+        N = self.data_enc.shape[0] - test_size
         if N < 3:
             raise ValueError("Must have at least 3 training examples")
         if N * valid_ratio < 1:
             valid_ratio = 1.0 / N
-        if N * test_ratio < 1:
-            test_ratio = 1.0 / N
-        train_end = int((1 - valid_ratio - test_ratio) * N)
-        val_end = int((1 - test_ratio) * N)
-        shuf_ind = np.arange(N)
+        #if N * test_ratio < 1:
+            #test_ratio = 1.0 / N
+        train_end = int((1 - valid_ratio) * N)
+        val_end = N
+        shuf_ind = np.arange(self.data_enc.shape[0])
         np.random.shuffle(shuf_ind)
         self.train_idx = shuf_ind[:train_end]
         self.val_idx = shuf_ind[train_end:val_end]

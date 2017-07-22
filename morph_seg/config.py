@@ -26,6 +26,7 @@ class Config(object):
         'model_dir': None,
         'reverse_input': False,
         'reverse_output': False,
+        'test_size': 10000,
     }
 
     __slots__ = tuple(defaults) + (
@@ -33,7 +34,7 @@ class Config(object):
     )
 
     int_values = (
-        'batch_size', 'max_epochs', 'patience',
+        'batch_size', 'max_epochs', 'patience', 'test_size',
     )
 
     def __init__(self, cfg_dict=None, param_str=None, **kwargs):

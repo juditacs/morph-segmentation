@@ -160,9 +160,9 @@ class Seq2seqModel(object):
         self.optimizer = getattr(tf.train, self.config.optimizer)(
             **self.config.optimizer_kwargs)
 
-    def run_train_test(self, test_ratio=.1):
+    def run_train_test(self):
         self.dataset.split_train_valid_test(
-            valid_ratio=.1, test_ratio=test_ratio)
+            valid_ratio=.1, test_size=self.config.test_size)
         with tf.Session() as sess:
             self.result.set_start()
             sess.run(tf.global_variables_initializer())
@@ -186,7 +186,7 @@ class Seq2seqModel(object):
             self.result.set_end()
 
             if self.config.save_model:
-                if test_ratio > 0:
+                if self.config.test_size > 0:
                     self.run_and_save_test(sess)
                 self.save_everything(sess)
 
