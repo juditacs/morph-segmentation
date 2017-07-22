@@ -176,7 +176,7 @@ class Seq2seqModel(object):
                                  'valid loss: {}'.format(
                                      iter_no+1, self.result.val_loss[-1]))
                     break
-                if iter_no % 100 == 90:
+                if iter_no % 100 == 99:
                     logging.info('Iter {}, train loss: {}, val loss: {}'.format(
                         iter_no+1, self.result.train_loss[-1], self.result.val_loss[-1]))
             else:
@@ -258,6 +258,8 @@ class Seq2seqModel(object):
             ))
 
     def save_everything(self, sess):
+        logging.info("Saving experiment to model {}".format(
+            self.config.model_dir))
         saver = tf.train.Saver()
         model_fn = os.path.join(self.config.model_dir, 'tf', 'model')
         saver.save(sess, model_fn)
