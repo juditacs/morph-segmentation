@@ -39,7 +39,7 @@ class Config(object):
 
     def __init__(self, cfg_dict=None, param_str=None, **kwargs):
         # load defaults first
-        for param, value in self.__class__.defaults.items():
+        for param, value in self.defaults.items():
             setattr(self, param, value)
 
         # override defaults with config dictionary
@@ -78,7 +78,7 @@ class Config(object):
             setattr(self, param, value)
 
     def create_model_dir(self):
-        if self.save_model is False or self.is_training is True:
+        if self.save_model is False or self.is_training is False:
             return
         i = 0
         path_fmt = '{0:04d}'

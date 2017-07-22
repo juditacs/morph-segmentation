@@ -112,7 +112,7 @@ class Seq2seqModel(object):
             self.decoder_cell,
             self.attention,
             attention_layer_size=self.config.attention_layer_size,
-            alignment_history=self.config.is_training,
+            alignment_history=False,
         )
         dec_init = self.decoder_cell.zero_state(self.config.batch_size, tf.float32) #.clone(cell_state=self.encoder_state)
         helper = tf.contrib.seq2seq.TrainingHelper(self.decoder_emb_input,
@@ -201,6 +201,7 @@ class Seq2seqModel(object):
             self.target_len: batch.target_len,
         }
         _, loss = sess.run([self.update, self.loss], feed_dict=feed_dict)
+        print(loss)
         self.result.train_loss.append(float(loss))
 
     def run_validation(self, sess):

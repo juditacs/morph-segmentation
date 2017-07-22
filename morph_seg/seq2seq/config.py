@@ -6,17 +6,19 @@
 #
 # Distributed under terms of the MIT license.
 
+import copy
+
 from morph_seg.config import Config, ConfigError
 
 
 class Seq2seqConfig(Config):
-    defaults = Config.defaults
+    defaults = copy.deepcopy(Config.defaults)
     defaults.update({
         'derive_maxlen': True,
         'share_vocab': True,
         'bidirectional': False,
         'cell_type': 'LSTM',
-        'cell_size': 64,
+        'cell_size': 63,
         'num_residual': 0,
         'num_layers': 1,
         'attention_type': None,
@@ -26,10 +28,15 @@ class Seq2seqConfig(Config):
         'optimizer': 'AdamOptimizer',
         'optimizer_kwargs': {},
     })
-    __slots__ = tuple(defaults) + Config.__slots__ + (
+    int_values = Config.int_values + (
         'maxlen_enc', 'maxlen_dec',
         'embedding_dim', 'embedding_dim_enc', 'embedding_dim_dec',
     )
+    __slots__ = tuple(defaults) + int_values + Config.__slots__
+
+    #def __init__(self, *args, **kwargs):
+        #self.__class__.defaults = Seq2seqConfig.defaults
+        #super().__init__(*args, **kwargs)
 
     def set_derivable_params(self):
         super().set_derivable_params()
@@ -56,7 +63,13 @@ class Seq2seqConfig(Config):
 
 
 class Seq2seqInferenceConfig(Seq2seqConfig):
-    defaults = Seq2seqConfig.defaults
+    defaults = copy.deepcopy(Seq2seqConfig.defaults)
     defaults.update({
         'is_training': False,
     })
+
+    def __init__(self, cfg_dict=None, param_str=None, **kwargs):
+        self.__class__.defaults = Seq2seqInferenceConfig.defaults
+        cfg_dict['is_training'] = False
+        cfg_dict['save_model'] = False
+        super().__init__(cfg_dict, param_str, **kwargs)
