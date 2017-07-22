@@ -201,7 +201,6 @@ class Seq2seqModel(object):
             self.target_len: batch.target_len,
         }
         _, loss = sess.run([self.update, self.loss], feed_dict=feed_dict)
-        print(loss)
         self.result.train_loss.append(float(loss))
 
     def run_validation(self, sess):
@@ -336,6 +335,7 @@ class Seq2seqInferenceModel(Seq2seqModel):
             }
             input_ids, output_ids = sess.run(
                 [self.input_enc, self.outputs.sample_id], feed_dict=feed_dict)
-            print(self.dataset.decode_enc(input_ids))
-            print(self.dataset.decode_dec(output_ids))
-
+            dec_in = self.dataset.decode_enc(input_ids)
+            dec_out = self.dataset.decode_dec(output_ids)
+            for i, s in enumerate(dec_in):
+                print("{}\t{}".format(s, dec_out[i]))
