@@ -26,7 +26,7 @@ class Seq2seqDataSet(DataSet):
 
     def pad_sample(self, enc, dec):
         enc = enc + ['PAD'] * (self.maxlen_enc-len(enc))
-        dec = dec + ['EOS'] + ['PAD'] * (
+        dec = ['SOS'] + dec + ['EOS'] + ['PAD'] * (
             self.maxlen_dec-len(dec)-1)
         return enc, dec
     
