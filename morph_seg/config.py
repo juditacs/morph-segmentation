@@ -32,9 +32,13 @@ class Config(object):
         'train_file',
     )
 
+    int_values = (
+        'batch_size', 'max_epochs', 'patience',
+    )
+
     def __init__(self, cfg_dict=None, param_str=None, **kwargs):
         # load defaults first
-        for param, value in Config.defaults.items():
+        for param, value in self.__class__.defaults.items():
             setattr(self, param, value)
 
         # override defaults with config dictionary
@@ -48,27 +52,32 @@ class Config(object):
         for param, value in kwargs.items():
             setattr(self, param, value)
 
+        self.create_model_dir()
         self.set_derivable_params()
         self.check_params()
-        self.create_model_dir()
 
     def set_derivable_params(self):
         if isinstance(self.train_file, str):
             self.train_file = os.path.abspath(self.train_file)
+        if self.vocab_path is None:
+            self.vocab_path = os.path.join(self.model_dir, 'vocab')
 
     def parse_and_set_param_str(self, param_str):
         if param_str is None:
             return
         for param_val in param_str.split(','):
             param, value = param_val.split('=')
-            try:
-                value = float(value)
-            except ValueError:
-                pass
+            if param in self.int_values:
+                value = int(value)
+            else:
+                try:
+                    value = float(value)
+                except ValueError:
+                    pass
             setattr(self, param, value)
 
     def create_model_dir(self):
-        if self.save_model is False:
+        if self.save_model is False or self.is_training is True:
             return
         i = 0
         path_fmt = '{0:04d}'
@@ -88,14 +97,10 @@ class Config(object):
 
     @property
     def vocab_enc_path(self):
-        if self.share_vocab:
-            return self.vocab_path
         return '{}.enc'.format(self.vocab_path)
 
     @property
     def vocab_dec_path(self):
-        if self.share_vocab:
-            return self.vocab_path
         return '{}.dec'.format(self.vocab_path)
 
     @classmethod

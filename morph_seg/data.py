@@ -15,6 +15,8 @@ class Vocabulary(object):
     SOS = 1
     EOS = 2
 
+    skip_symbols = ('EOS', 'SOS', 'PAD')
+
     def __init__(self, data, frozen=False, default=0):
         self.frozen = False
         self.data = data
@@ -44,6 +46,12 @@ class Vocabulary(object):
     def __len__(self):
         return len(self.data)
 
+    def to_file(self, filename):
+        with open(filename, 'w') as f:
+            f.write('\n'.join(
+                '{}\t{}'.format(k, v) for k, v in sorted(self.data.items())
+            ) + '\n')
+
     @property
     def inv_vocab(self):
         if len(self._inv_vocab) != len(self.data):
@@ -69,6 +77,8 @@ class DataSet(object):
     def load_or_create_vocab(self):
         if self.config.vocab_enc_path and \
            os.path.exists(self.config.vocab_enc_path):
+            print("Loading vocabs")
+            print(self.config.vocab_enc_path)
             self.vocab_enc = Vocabulary.from_file(self.config.vocab_enc_path)
             if self.config.share_vocab:
                 self.vocab_dec = self.vocab_enc
@@ -110,7 +120,7 @@ class DataSet(object):
 
     def featurize(self):
         self.len_enc = np.array([len(s[0]) for s in self.samples])
-        self.len_dec = np.array([len(s[1]) for s in self.samples])
+        self.len_dec = np.array([len(s[1])+2 for s in self.samples])
         data_enc = []
         data_dec = []
         for enc, dec in self.samples:
@@ -173,3 +183,8 @@ class DataSet(object):
         }
         with open(filename, 'w') as f:
             yaml.dump(d, f)
+
+    def save_vocabs(self):
+        print("Saving vocabs")
+        self.vocab_enc.to_file(self.config.vocab_enc_path)
+        self.vocab_dec.to_file(self.config.vocab_dec_path)

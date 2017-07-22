@@ -90,11 +90,58 @@ class Seq2seqDataSet(DataSet):
             batch.target_len = target_len
             yield batch
 
-    def decode(self, indices):
+    def decode_enc(self, indices):
+        return self.__decode(indices, self.vocab_enc)
+
+    def decode_dec(self, indices):
+        return self.__decode(indices, self.vocab_dec)
+
+    def __decode(self, indices, vocab):
         delimiter = self.config.delimiter
         delimiter = '' if delimiter is None else delimiter
         decoded = []
         for sample in indices:
-            dec = [self.vocab_dec.inv_vocab[s] for s in sample]
+            dec = [vocab.inv_vocab[s] for s in sample]
+            dec = [d for d in dec if d not in vocab.skip_symbols]
             decoded.append(delimiter.join(dec))
         return decoded
+
+
+class Seq2seqInferenceDataSet(Seq2seqDataSet):
+    def __init__(self, config, stream_or_file):
+        super().__init__(config, stream_or_file)
+        self.vocab_enc.frozen = True
+        self.vocab_dec.frozen = True
+
+    def load_data_from_stream(self, stream):
+        self.samples = []
+        self.set_maxlens()
+        for line in stream:
+            enc = line.rstrip('\n').split('\t')[0]
+            if self.is_too_long(enc, ''):
+                enc = enc[:self.maxlen_enc]
+            if self.config.reverse_input:
+                enc = enc[::-1]
+            self.samples.append(enc)
+        self.featurize()
+
+    def set_maxlens(self):
+        self.maxlen_enc = self.config.maxlen_enc
+        self.maxlen_dec = self.config.maxlen_dec
+
+    def featurize(self):
+        self.len_enc = np.array([len(s) for s in self.samples])
+        self.len_dec = np.zeros_like(self.len_enc)
+        data_enc = []
+        for sample in self.samples:
+            if self.config.delimiter is None:
+                sample = list(sample)
+            else:
+                sample = sample.split(delimiter)
+            padded = sample + ['PAD'] * (self.maxlen_enc-len(sample))
+            featurized = [self.vocab_enc[c] for c in padded]
+            data_enc.append(featurized)
+        self.data_enc = np.array(data_enc)
+
+    def get_inference_batch(self):
+        return self.data_enc, self.len_enc

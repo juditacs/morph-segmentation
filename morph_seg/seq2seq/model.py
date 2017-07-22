@@ -120,9 +120,9 @@ class Seq2seqModel(object):
         decoder = tf.contrib.seq2seq.BasicDecoder(self.decoder_cell,
                                                   helper, dec_init)
         outputs, final, _ = tf.contrib.seq2seq.dynamic_decode(decoder)
-        output_proj = layers_core.Dense(self.dataset.vocab_dec_size,
+        self.output_proj = layers_core.Dense(self.dataset.vocab_dec_size,
                                         name="output_proj")
-        self.logits = output_proj(outputs.rnn_output)
+        self.logits = self.output_proj(outputs.rnn_output)
     
     def create_attention(self):
         if self.config.attention_type == 'luong':
@@ -247,8 +247,8 @@ class Seq2seqModel(object):
             sess.run(
                 [self.encoder_input, self.decoder_emb_input], feed_dict=feed_dict)
             logits = sess.run(self.logits, feed_dict=feed_dict)
-            inp = self.dataset.decode(batch.input_enc)
-            out = self.dataset.decode(logits.argmax(axis=-1))
+            inp = self.dataset.decode_enc(batch.input_enc)
+            out = self.dataset.decode_dec(logits.argmax(axis=-1))
             decoded_in.extend(inp)
             decoded_out.extend(out)
         with open(os.path.join(self.config.model_dir, 'test_output'), 'w') as f:
@@ -258,6 +258,7 @@ class Seq2seqModel(object):
             ))
 
     def save_everything(self, sess):
+        self.update_config_after_experiment()
         logging.info("Saving experiment to model {}".format(
             self.config.model_dir))
         saver = tf.train.Saver()
@@ -270,3 +271,70 @@ class Seq2seqModel(object):
 
         data_params_fn = os.path.join(self.config.model_dir, 'dataset.yaml')
         self.dataset.params_to_yaml(data_params_fn)
+        self.dataset.save_vocabs()
+
+    def update_config_after_experiment(self):
+        self.config.maxlen_enc = self.dataset.maxlen_enc
+        self.config.maxlen_dec = self.dataset.maxlen_dec
+
+
+class Seq2seqInferenceModel(Seq2seqModel):
+    def __init__(self, config, dataset):
+        self.config = config
+        self.dataset = dataset
+
+        self.create_placeholders()
+        self.create_encoder()
+        self.create_decoder()
+
+    def create_decoder(self):
+        super().create_decoder()
+        helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
+            self.embedding_dec,
+            tf.fill([self.config.batch_size], self.dataset.SOS), self.dataset.EOS)
+        dec_init = self.decoder_cell.zero_state(
+            self.config.batch_size, tf.float32).clone(
+                cell_state=self.encoder_state)
+        decoder = tf.contrib.seq2seq.BasicDecoder(
+            self.decoder_cell, helper, dec_init,
+            output_layer=self.output_proj)
+        self.outputs, _, _ = tf.contrib.seq2seq.dynamic_decode(
+            decoder, maximum_iterations=self.dataset.maxlen_dec)
+
+    def create_decoder2(self):
+        self.decoder_cell = self.create_cell()
+        self.decoder_emb_input = tf.nn.embedding_lookup(
+            self.embedding_dec, self.input_dec
+        )
+        self.create_attention()
+        self.decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
+            self.decoder_cell,
+            self.attention,
+            attention_layer_size=self.config.attention_layer_size,
+            alignment_history=True,
+        )
+        dec_init = self.decoder_cell.zero_state(self.config.batch_size, tf.float32).clone(cell_state=self.encoder_state)
+        helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
+            self.embedding_dec, tf.fill([self.config.batch_size], self.dataset.SOS), self.dataset.EOS)
+
+        decoder = tf.contrib.seq2seq.BasicDecoder(self.decoder_cell,
+                                                  helper, dec_init)
+        self.outputs, _, _ = tf.contrib.seq2seq.dynamic_decode(
+            decoder, maximum_iterations=self.config.maxlen_dec)
+
+    def run_inference(self):
+        saver = tf.train.Saver()
+        with tf.Session() as sess:
+            sess.run(tf.global_variables_initializer())
+            model_path = os.path.join(self.config.model_dir, 'tf', 'model')
+            saver.restore(sess, model_path)
+            batch = self.dataset.get_inference_batch()
+            feed_dict = {
+                self.input_enc: batch[0],
+                self.input_len_enc: batch[1],
+            }
+            input_ids, output_ids = sess.run(
+                [self.input_enc, self.outputs.sample_id], feed_dict=feed_dict)
+            print(self.dataset.decode_enc(input_ids))
+            print(self.dataset.decode_dec(output_ids))
+

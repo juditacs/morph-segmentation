@@ -53,3 +53,10 @@ class Seq2seqConfig(Config):
             raise ConfigError(
                 "Attention type most be luong or bahdanau"
             )
+
+
+class Seq2seqInferenceConfig(Seq2seqConfig):
+    defaults = Seq2seqConfig.defaults
+    defaults.update({
+        'is_training': False,
+    })
