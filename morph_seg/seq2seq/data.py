@@ -5,7 +5,6 @@
 # Copyright © 2017 Judit Acs <judit@sch.bme.hu>
 #
 # Distributed under terms of the MIT license.
-from collections import namedtuple
 import numpy as np
 
 from morph_seg.data import DataSet
@@ -25,11 +24,14 @@ class Batch(object):
 class Seq2seqDataSet(DataSet):
 
     def pad_sample(self, enc, dec):
-        enc = enc + ['PAD'] * (self.maxlen_enc-len(enc))
+        if self.config.pad_left:
+            enc = enc + ['PAD'] * (self.maxlen_enc-len(enc))
+        else:
+            enc = ['PAD'] * (self.maxlen_enc-len(enc)) + enc
         dec = ['SOS'] + dec + ['EOS'] + ['PAD'] * (
             self.maxlen_dec-len(dec)-1)
         return enc, dec
-    
+
     def is_too_long(self, enc, dec):
         return self.config.derive_maxlen is False and \
            (len(enc) > self.config.maxlen_enc or

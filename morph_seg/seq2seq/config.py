@@ -17,6 +17,7 @@ class Seq2seqConfig(Config):
         'derive_maxlen': True,
         'share_vocab': True,
         'bidirectional': False,
+        'pad_left': True,
         'cell_type': 'LSTM',
         'cell_size': 63,
         'num_residual': 0,
@@ -33,10 +34,6 @@ class Seq2seqConfig(Config):
         'embedding_dim', 'embedding_dim_enc', 'embedding_dim_dec',
     )
     __slots__ = tuple(defaults) + int_values + Config.__slots__
-
-    #def __init__(self, *args, **kwargs):
-        #self.__class__.defaults = Seq2seqConfig.defaults
-        #super().__init__(*args, **kwargs)
 
     def set_derivable_params(self):
         super().set_derivable_params()
