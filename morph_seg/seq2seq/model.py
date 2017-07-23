@@ -18,7 +18,9 @@ class Seq2seqModel(object):
     def __init__(self, config, dataset):
         self.config = config
         self.dataset = dataset
-
+        initializer = tf.random_uniform_initializer(
+            -1.0, 1.0, seed=12)
+        tf.get_variable_scope().set_initializer(initializer)
         self.create_placeholders()
         self.create_encoder()
         self.create_decoder()
@@ -70,7 +72,8 @@ class Seq2seqModel(object):
         cells = []
         for i in range(int(self.config.num_layers)):
             if i >= self.config.num_layers-num_residual:
-                cells.append(tf.contrib.rnn.ResidualWrapper(self.create_cell(cell_size)))
+                cells.append(tf.contrib.rnn.ResidualWrapper(
+                    self.create_cell(cell_size)))
             else:
                 cells.append(self.create_cell(cell_size))
         if len(cells) > 1:
@@ -101,11 +104,13 @@ class Seq2seqModel(object):
                 [self.dataset.vocab_dec_size, self.config.embedding_dim_dec],
                 dtype=tf.float32)
 
-    def create_decoder(self):
+    def create_simple_decoder_cell(self):
         self.decoder_cell = self.create_cell()
-        self.decoder_emb_input = tf.nn.embedding_lookup(
-            self.embedding_dec, self.input_dec
-        )
+        dec_init = self.encoder_state
+        return dec_init
+
+    def create_attention_cell(self):
+        self.decoder_cell = self.create_cell()
         self.create_attention()
         self.decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
             self.decoder_cell,
@@ -113,16 +118,31 @@ class Seq2seqModel(object):
             attention_layer_size=self.config.attention_layer_size,
             alignment_history=False,
         )
-        dec_init = self.decoder_cell.zero_state(self.config.batch_size, tf.float32) #.clone(cell_state=self.encoder_state)
-        helper = tf.contrib.seq2seq.TrainingHelper(self.decoder_emb_input,
-                                                   self.input_len_dec)
-        decoder = tf.contrib.seq2seq.BasicDecoder(self.decoder_cell,
-                                                  helper, dec_init)
-        outputs, final, _ = tf.contrib.seq2seq.dynamic_decode(decoder)
-        self.output_proj = layers_core.Dense(self.dataset.vocab_dec_size,
-                                        name="output_proj")
-        self.logits = self.output_proj(outputs.rnn_output)
-    
+        dec_init = self.decoder_cell.zero_state(
+            self.config.batch_size, tf.float32).clone(cell_state=self.encoder_state)
+        return dec_init
+
+    def create_decoder(self):
+        with tf.variable_scope("decoder") as dec_scope:
+            self.decoder_emb_input = tf.nn.embedding_lookup(
+                self.embedding_dec, self.input_dec
+            )
+            if self.config.attention_type is None:
+                dec_init = self.create_simple_decoder_cell()
+            else:
+                dec_init = self.create_attention_cell()
+            helper = tf.contrib.seq2seq.TrainingHelper(self.decoder_emb_input,
+                                                    self.input_len_dec)
+            decoder = tf.contrib.seq2seq.BasicDecoder(self.decoder_cell,
+                                                    helper, dec_init)
+            outputs, final, _ = tf.contrib.seq2seq.dynamic_decode(
+                decoder,
+                output_time_major=False,
+                scope=dec_scope)
+            self.output_proj = layers_core.Dense(self.dataset.vocab_dec_size,
+                                            name="output_proj")
+            self.logits = self.output_proj(outputs.rnn_output)
+
     def create_attention(self):
         if self.config.attention_type == 'luong':
             self.attention = tf.contrib.seq2seq.LuongAttention(
@@ -147,7 +167,8 @@ class Seq2seqModel(object):
         )
         target_weights = tf.sequence_mask(
             self.target_len, max_time, tf.float32)
-        self.loss = tf.reduce_sum(crossent * target_weights) / tf.to_float(self.config.batch_size)
+        self.loss = tf.reduce_sum(crossent * target_weights) / tf.to_float(
+            self.config.batch_size)
         self.create_optimizer()
         params = tf.trainable_variables()
         gradients = tf.gradients(self.loss, params)
@@ -177,7 +198,8 @@ class Seq2seqModel(object):
                     break
                 if iter_no % 100 == 99:
                     logging.info('Iter {}, train loss: {}, val loss: {}'.format(
-                        iter_no+1, self.result.train_loss[-1], self.result.val_loss[-1]))
+                        iter_no+1, self.result.train_loss[-1],
+                        self.result.val_loss[-1]))
             else:
                 self.result.early_topped = False
             self.result.epochs_run = iter_no + 1
@@ -199,7 +221,8 @@ class Seq2seqModel(object):
             self.target: batch.target,
             self.target_len: batch.target_len,
         }
-        _, loss = sess.run([self.update, self.loss], feed_dict=feed_dict)
+        _, _, loss = sess.run([self.encoder_input, self.update, self.loss],
+                              feed_dict=feed_dict)
         self.result.train_loss.append(float(loss))
 
     def run_validation(self, sess):
@@ -212,7 +235,7 @@ class Seq2seqModel(object):
             self.target: batch.target,
             self.target_len: batch.target_len,
         }
-        _, loss = sess.run([self.update, self.loss], feed_dict=feed_dict)
+        loss = sess.run(self.loss, feed_dict=feed_dict)
         self.result.val_loss.append(float(loss))
 
     def do_early_stopping(self):

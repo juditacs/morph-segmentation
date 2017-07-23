@@ -53,11 +53,17 @@ class Config(object):
         for param, value in kwargs.items():
             setattr(self, param, value)
 
-        self.create_model_dir()
         self.set_derivable_params()
+        self.create_model_dir()
         self.check_params()
 
     def set_derivable_params(self):
+        if self.save_model is True or self.is_training is True:
+            i = 0
+            path_fmt = '{0:04d}'
+            while os.path.exists(os.path.join(self.model_dir, path_fmt.format(i))):
+                i += 1
+            self.model_dir = os.path.join(self.model_dir, path_fmt.format(i))
         if isinstance(self.train_file, str):
             self.train_file = os.path.abspath(self.train_file)
         if self.vocab_path is None:
@@ -78,13 +84,6 @@ class Config(object):
             setattr(self, param, value)
 
     def create_model_dir(self):
-        if self.save_model is False or self.is_training is False:
-            return
-        i = 0
-        path_fmt = '{0:04d}'
-        while os.path.exists(os.path.join(self.model_dir, path_fmt.format(i))):
-            i += 1
-        self.model_dir = os.path.join(self.model_dir, path_fmt.format(i))
         os.makedirs(self.model_dir)
 
     def check_params(self):

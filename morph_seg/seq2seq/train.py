@@ -32,7 +32,7 @@ def main():
     args = parse_args()
     cfg = Seq2seqConfig.load_from_yaml(args.config, train_file=args.train_file,
                                        param_str=args.parameters)
-    #print(cfg)
+    print(cfg)
     dataset = Seq2seqDataSet(cfg, args.train_file)
     model = Seq2seqModel(cfg, dataset)
     model.run_train_test()

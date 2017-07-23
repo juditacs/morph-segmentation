@@ -59,7 +59,7 @@ class Seq2seqConfig(Config):
                 "The number of residual connection cannot be "
                 "greater than layers / 2"
             )
-        if self.attention_type not in ('luong', 'bahdanau'):
+        if self.attention_type not in (None, 'luong', 'bahdanau'):
             raise ConfigError(
                 "Attention type most be luong or bahdanau"
             )
