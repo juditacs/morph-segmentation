@@ -17,7 +17,7 @@ class Seq2seqConfig(Config):
         'derive_maxlen': True,
         'share_vocab': True,
         'bidirectional': False,
-        'pad_left': True,
+        'pad_left': False,
         'cell_type': 'LSTM',
         'cell_size': 63,
         'num_residual': 0,
@@ -28,6 +28,8 @@ class Seq2seqConfig(Config):
         'batch_size': 16,
         'optimizer': 'AdamOptimizer',
         'optimizer_kwargs': {},
+        'embedding_dim_enc': 0,
+        'embedding_dim_dec': 0,
     })
     int_values = Config.int_values + (
         'maxlen_enc', 'maxlen_dec',
@@ -37,6 +39,10 @@ class Seq2seqConfig(Config):
 
     def set_derivable_params(self):
         super().set_derivable_params()
+        if self.embedding_dim_enc == 0:
+            self.embedding_dim_enc = self.embedding_dim
+        if self.embedding_dim_dec == 0:
+            self.embedding_dim_dec = self.embedding_dim
         if self.share_vocab:
             self.embedding_dim_enc = self.embedding_dim
             self.embedding_dim_dec = self.embedding_dim
