@@ -25,9 +25,9 @@ class Seq2seqDataSet(DataSet):
 
     def pad_sample(self, enc, dec):
         if self.config.pad_left:
-            enc = enc + ['PAD'] * (self.maxlen_enc-len(enc))
-        else:
             enc = ['PAD'] * (self.maxlen_enc-len(enc)) + enc
+        else:
+            enc = enc + ['PAD'] * (self.maxlen_enc-len(enc))
         dec = ['SOS'] + dec + ['EOS'] + ['PAD'] * (
             self.maxlen_dec-len(dec)-1)
         return enc, dec
@@ -48,7 +48,7 @@ class Seq2seqDataSet(DataSet):
     def create_target(self):
         self.target = np.concatenate(
             (self.data_dec[:, 1:], np.zeros((self.data_dec.shape[0], 1))),
-             axis=1)
+            axis=1)
         self.target_len = self.len_dec - 1
 
     def featurize(self):
@@ -80,7 +80,8 @@ class Seq2seqDataSet(DataSet):
         )
 
     def get_test_data_batches(self):
-        for i in range(0, len(self.test_idx)-self.config.batch_size+1, self.config.batch_size):
+        for i in range(0, len(self.test_idx)-self.config.batch_size+1,
+                       self.config.batch_size):
             start = i
             end = i+self.config.batch_size
             indices = self.test_idx[start:end]
@@ -139,7 +140,7 @@ class Seq2seqInferenceDataSet(Seq2seqDataSet):
             if self.config.delimiter is None:
                 sample = list(sample)
             else:
-                sample = sample.split(delimiter)
+                sample = sample.split(self.config.delimiter)
             padded = sample + ['PAD'] * (self.maxlen_enc-len(sample))
             featurized = [self.vocab_enc[c] for c in padded]
             data_enc.append(featurized)
