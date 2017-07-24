@@ -23,7 +23,7 @@ class Seq2seqModel(object):
         tf.get_variable_scope().set_initializer(initializer)
         self.create_placeholders()
         self.create_encoder()
-        self.create_dec_debug()
+        self.create_decoder()
 
         self.create_train_ops()
 
@@ -45,12 +45,9 @@ class Seq2seqModel(object):
             shape=[self.dataset.maxlen_dec, None], dtype=tf.int32)
         self.target_len = tf.placeholder(shape=[None], dtype=tf.int32)
 
-        self.input_dec = tf.concat([tf.fill([1, tf.shape(self.target)[1]], self.dataset.SOS),
-                                    self.target[:-1, :]], 0)
-        #self.input_dec = tf.placeholder(
-            #shape=[self.dataset.maxlen_dec, None], dtype=tf.int32)
-        #self.input_len_dec = tf.placeholder(shape=[None], dtype=tf.int32)
-
+        self.input_dec = tf.concat(
+            [tf.fill([1, tf.shape(self.target)[1]], self.dataset.SOS),
+             self.target[:-1, :]], 0)
 
     def create_encoder(self):
         self.create_embedding()
@@ -106,17 +103,39 @@ class Seq2seqModel(object):
             else:
                 self.embedding_dec = tf.get_variable(
                     "embedding_dec",
-                    [self.dataset.vocab_dec_size, self.config.embedding_dim_dec],
+                    [self.dataset.vocab_dec_size,
+                     self.config.embedding_dim_dec],
                     dtype=tf.float32)
 
             self.decoder_emb_input = tf.nn.embedding_lookup(
                 self.embedding_dec, self.input_dec
             )
 
-    def create_simple_decoder_cell(self):
-        self.decoder_cell = self.create_cell()
-        dec_init = self.encoder_state
-        return dec_init
+    def create_simple_decoder(self):
+        with tf.variable_scope("decoder") as dec_scope:
+            #self.decoder_cell = self.create_cell()
+            cell_list = []
+            cell = tf.contrib.rnn.BasicLSTMCell(self.config.cell_size)
+            cell = tf.contrib.rnn.DropoutWrapper(cell=cell, input_keep_prob=0.2)
+            cell_list.append(cell)
+            cell = tf.contrib.rnn.BasicLSTMCell(self.config.cell_size)
+            cell = tf.contrib.rnn.DropoutWrapper(cell=cell, input_keep_prob=0.2)
+            cell_list.append(cell)
+            cell = tf.contrib.rnn.MultiRNNCell(cell_list)
+            self.decoder_cell = cell
+            dec_init = self.encoder_state
+            helper = tf.contrib.seq2seq.TrainingHelper(self.decoder_emb_input,
+                                                    self.target_len, time_major=True)
+            decoder = tf.contrib.seq2seq.BasicDecoder(self.decoder_cell,
+                                                    helper, dec_init)
+            outputs, final, _ = tf.contrib.seq2seq.dynamic_decode(
+                decoder,
+                output_time_major=True,
+                swap_memory=True,
+                scope=dec_scope)
+            self.output_proj = layers_core.Dense(self.dataset.vocab_dec_size,
+                                            name="output_proj")
+            self.logits = self.output_proj(outputs.rnn_output)
 
     def create_attention_cell(self):
         self.decoder_cell = self.create_cell()
@@ -128,19 +147,19 @@ class Seq2seqModel(object):
             alignment_history=False,
         )
         dec_init = self.decoder_cell.zero_state(
-            tf.shape(self.decoder_emb_input)[1], tf.float32).clone(cell_state=self.encoder_state)
-        #dec_init = self.decoder_cell.zero_state(
-            #self.config.batch_size, tf.float32).clone(cell_state=self.encoder_state)
+            tf.shape(self.decoder_emb_input)[1],
+            tf.float32).clone(cell_state=self.encoder_state)
         return dec_init
 
-    def create_dec_debug(self):
+    def create_decoder(self):
+        if self.config.attention_type is None:
+            self.create_simple_decoder()
+        else:
+            self.create_attention_decoder()
+
+    def create_attention_decoder(self):
         with tf.variable_scope("decoder") as scope:
-            #self.create_attention()
-            attention_states = tf.transpose(self.encoder_outputs, [1, 0, 2])
-            attention_mechanism = tf.contrib.seq2seq.LuongAttention(
-                self.config.cell_size, attention_states, scale=True,
-                memory_sequence_length=self.input_len_enc
-            )
+            self.create_attention()
 
             cell_list = []
             cell = tf.contrib.rnn.BasicLSTMCell(self.config.cell_size)
@@ -151,9 +170,10 @@ class Seq2seqModel(object):
             cell_list.append(cell)
             cell = tf.contrib.rnn.MultiRNNCell(cell_list)
 
-            cell = tf.contrib.seq2seq.AttentionWrapper(cell, attention_mechanism,
-                                               attention_layer_size=self.config.cell_size,
-                                               name="rohadek")
+            cell = tf.contrib.seq2seq.AttentionWrapper(
+                cell, self.attention_mechanism,
+                attention_layer_size=self.config.cell_size,
+                name="attention")
             helper = tf.contrib.seq2seq.TrainingHelper(
                 self.decoder_emb_input, self.target_len, time_major=True
             )
@@ -174,7 +194,7 @@ class Seq2seqModel(object):
             self.logits = self.output_proj(outputs.rnn_output)
             self.decoder_cell = cell
 
-    def create_decoder(self):
+    def create_decoder_old(self):
         with tf.variable_scope("decoder") as dec_scope:
             self.decoder_emb_input = tf.nn.embedding_lookup(
                 self.embedding_dec, self.input_dec
@@ -199,13 +219,13 @@ class Seq2seqModel(object):
     def create_attention(self):
         attention_states = tf.transpose(self.encoder_outputs, [1, 0, 2])
         if self.config.attention_type == 'luong':
-            self.attention = tf.contrib.seq2seq.LuongAttention(
+            self.attention_mechanism = tf.contrib.seq2seq.LuongAttention(
                 self.config.cell_size,
                 attention_states,
                 memory_sequence_length=self.input_len_enc
             )
         elif self.config.attention_type == 'bahdanau':
-            self.attention = tf.contrib.seq2seq.BahdanauAttention(
+            self.attention_mechanism = tf.contrib.seq2seq.BahdanauAttention(
                 self.config.cell_size,
                 attention_states,
                 memory_sequence_length=self.input_len_enc
@@ -365,7 +385,7 @@ class Seq2seqInferenceModel(Seq2seqModel):
         self.create_decoder()
 
     def create_decoder(self):
-        super().create_dec_debug()
+        super().create_decoder()
         with tf.variable_scope("decoder", reuse=True) as scope:
             helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
                 self.embedding_dec,
