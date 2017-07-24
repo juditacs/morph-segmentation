@@ -4,17 +4,18 @@ embedding_dim: 30
 bidirectional: true
 cell_type: LSTM
 cell_size: 16
-num_residual: 1
-num_layers: 3
+num_residual: 0
+num_layers: 1
 attention_type: luong
 attention_layer_size: 32
 optimizer: AdamOptimizer
 optimizer_kwargs:
   learning_rate: 0.1
+share_vocab: true
 
 # training options
-batch_size: 200
-max_epochs: 100000
+batch_size: 4
+max_epochs: 10
 early_stopping_threshold: 0.01
 patience: 10
 

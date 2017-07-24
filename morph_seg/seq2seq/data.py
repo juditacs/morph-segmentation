@@ -71,11 +71,11 @@ class Seq2seqDataSet(DataSet):
 
     def __get_training_batch(self, indices):
         return Batch(
-            input_enc=self.data_enc[indices],
-            input_dec=self.data_dec[indices],
+            input_enc=self.data_enc[indices].T,
+            input_dec=self.data_dec[indices].T,
             input_len_enc=self.len_enc[indices],
             input_len_dec=self.len_dec[indices],
-            target=self.target[indices],
+            target=self.target[indices].T,
             target_len=self.target_len[indices],
         )
 
@@ -145,6 +145,7 @@ class Seq2seqInferenceDataSet(Seq2seqDataSet):
             featurized = [self.vocab_enc[c] for c in padded]
             data_enc.append(featurized)
         self.data_enc = np.array(data_enc)
+        self.target = np.zeros((self.data_enc.shape[0], self.maxlen_dec))
 
     def get_inference_batch(self):
-        return self.data_enc, self.len_enc
+        return self.data_enc.T, self.len_enc, self.target.T

@@ -76,3 +76,4 @@ class Seq2seqInferenceConfig(Seq2seqConfig):
         cfg_dict['is_training'] = False
         cfg_dict['save_model'] = False
         super().__init__(cfg_dict, param_str, **kwargs)
+        print(self)

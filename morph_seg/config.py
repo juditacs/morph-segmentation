@@ -54,16 +54,22 @@ class Config(object):
             setattr(self, param, value)
 
         self.set_derivable_params()
-        self.create_model_dir()
         self.check_params()
 
+    def derive_and_create_model_dir(self):
+        # model_dir needs to be fully defined
+        print(self.is_training, "%%%%")
+        if self.is_training is False:
+            return
+        i = 0
+        path_fmt = '{0:04d}'
+        while os.path.exists(os.path.join(self.model_dir, path_fmt.format(i))):
+            i += 1
+        self.model_dir = os.path.join(self.model_dir, path_fmt.format(i))
+        os.makedirs(self.model_dir)
+
     def set_derivable_params(self):
-        if self.save_model is True or self.is_training is True:
-            i = 0
-            path_fmt = '{0:04d}'
-            while os.path.exists(os.path.join(self.model_dir, path_fmt.format(i))):
-                i += 1
-            self.model_dir = os.path.join(self.model_dir, path_fmt.format(i))
+        self.derive_and_create_model_dir()
         if isinstance(self.train_file, str):
             self.train_file = os.path.abspath(self.train_file)
         if self.vocab_path is None:
@@ -83,13 +89,14 @@ class Config(object):
                     pass
             setattr(self, param, value)
 
-    def create_model_dir(self):
-        os.makedirs(self.model_dir)
-
     def check_params(self):
-        if self.save_model is True and self.model_dir is None:
-            raise ConfigError("A model_dir must be specified if "
-                              "save_model is True")
+        if self.is_training is False:
+            model_path = os.path.join(self.model_dir, 'params.yaml')
+            if not os.path.exists(model_path):
+                raise ConfigError(
+                    "Model directory must contain a valid saved model. "
+                    "Directory: {}".format(self.model_dir)
+                )
 
     def __repr__(self):
         return '{}'.format({k: getattr(self, k, None)
