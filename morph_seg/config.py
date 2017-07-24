@@ -9,7 +9,8 @@ import yaml
 import os
 
 
-class ConfigError(Exception): pass
+class ConfigError(Exception):
+    pass
 
 
 class Config(object):
@@ -27,6 +28,7 @@ class Config(object):
         'reverse_input': False,
         'reverse_output': False,
         'test_size': 10000,
+        'train_file': None,
     }
 
     __slots__ = tuple(defaults) + (
@@ -43,8 +45,9 @@ class Config(object):
             setattr(self, param, value)
 
         # override defaults with config dictionary
-        for param, value in cfg_dict.items():
-            setattr(self, param, value)
+        if cfg_dict is not None:
+            for param, value in cfg_dict.items():
+                setattr(self, param, value)
 
         # parse param_str and set values
         self.parse_and_set_param_str(param_str)
@@ -99,7 +102,7 @@ class Config(object):
 
     def __repr__(self):
         return '{}'.format({k: getattr(self, k, None)
-                for k in self.__class__.__slots__})
+                            for k in self.__class__.__slots__})
 
     @property
     def vocab_enc_path(self):
