@@ -293,7 +293,7 @@ class Seq2seqModel(object):
             self.config.batch_size)
         #self.create_optimizer()
         self.optimizer = tf.train.GradientDescentOptimizer(
-            self.learning_rate / tf.to_float(self.global_step))
+            tf.sqrt(self.learning_rate / tf.to_float(self.global_step)))
         params = tf.trainable_variables()
         gradients = tf.gradients(self.loss, params)
         clipped_gradients, _ = tf.clip_by_global_norm(
