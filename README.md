@@ -27,10 +27,19 @@ The inference scripts (`inference.py`) also read from the standard input and exp
 
 ## seq2seq
 
+The previous (working) seq2seq implementation used `legacy_seq2seq`.
+The new implementation is still under heavy development.
+Usage information will be added soon.
+
+
+### Old (deprecated) seq2seq instructions
+
+The code is available on te `seq2seq_old` branch.
+
 The seq2seq source code is located in the `morph_seg/seq2seq` directory.
 It uses Tensorflow's `legacy_seq2seq`.
 
-### Training your own model
+#### Training your own model
 
 ~~~
 cat training_data | python morph_seg/seq2seq/train.py --save-test-output test_output --save-model model_directory --cell-size 64 --result-file results.tsv
@@ -54,7 +63,7 @@ Note that the first three arguments' default is `None`.
 This means that unless specified, they do not write to file.
 They are not linked though, any one can be left out.
 
-### Using your model for inference
+#### Using your model for inference
 
 `train.py` saves everything needed for inference to the directory specified by the `save-model` argument.
 Inference can be run like this:
@@ -65,7 +74,9 @@ cat test_data | python morph_seg/seq2seq/inference.py --model-dir your_saved_mod
 
 Note that longer samples than the maximum length in the training data will be trimmed from their beginning.
 
-## LSTM
+## LSTM and CNN
+
+This section needs updating.
 
 The LSTM source code is located in the `morph_seg/sequence_tagger` directory.
 It uses Keras's `LSTM`, `GRU` modules, and the usage is basically identical to the seq2seq model above.
@@ -73,8 +84,12 @@ It uses Keras's `LSTM`, `GRU` modules, and the usage is basically identical to t
 ### Training your own model
 
 ~~~
-cat training_data | python morph_seg/sequence_tagger/train.py --save-test-output test_output --save-model model_directory --cell-size 64 --result-file results.tsv
+cat training_data | python morph_seg/sequence_tagger/train.py --config config.yaml --architecture RNN
 ~~~
+
+See an example configuration at `config/sequence_tagger/toy.yaml`.
+
+The majority of options is currently listed in the source code in `train.py`. Sorry :(
 
 ### Using your model for inference
 
