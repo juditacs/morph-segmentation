@@ -15,7 +15,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
-from keras.layers import Input, Dense, Embedding, Masking, Bidirectional
+from keras.layers import Input, Dense, Embedding, Masking, Bidirectional, Dropout, Conv1D, MaxPooling1D
 from keras.layers.recurrent import LSTM, GRU
 from keras.models import Model
 from keras.layers.wrappers import TimeDistributed
@@ -215,11 +215,30 @@ class SequenceTagger(object):
         return d
 
 
+class CNNTagger(SequenceTagger):
+    def define_model(self):
+        input_layer = Input(batch_shape=(None, self.dataset.maxlen),
+                            dtype='int8')
+        emb = Embedding(len(self.dataset.x_vocab),
+                        self.config.embedding_size)(input_layer)
+        emb = Dropout(0.8)(emb)
+        conv = Conv1D(3, 2, padding='same', activation='relu', strides=1)(emb)
+        maxp = MaxPooling1D(pool_size=1)(conv)
+        l = LSTM(self.dataset.maxlen, return_sequences=True)(maxp)
+        l = TimeDistributed(Dense(len(self.dataset.y_vocab),
+                                  activation='softmax'))(l)
+        #l = Dense(len(self.dataset.y_vocab))(l)
+        #l = Dense(len(self.dataset.y_vocab))(maxp)
+        #l = Dense
+        self.model = Model(inputs=input_layer, outputs=l)
+        self.model.compile(optimizer=self.config.optimizer,
+                           loss='categorical_crossentropy')
+
 def main():
     args = parse_args()
     cfg = Config(vars(args))
     dataset = DataSet(stdin)
-    model = SequenceTagger(dataset, cfg)
+    model = CNNTagger(dataset, cfg)
     model.run_train_test()
 
 
