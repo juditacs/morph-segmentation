@@ -8,7 +8,7 @@
 
 import gzip
 import os
-import cPickle
+from six.moves import cPickle
 
 import numpy as np
 
@@ -67,7 +67,7 @@ class DataSet(object):
         self.y = np.array(y)
 
     def create_train_test_split(self):
-        shuf_idx = range(self.x.shape[0])
+        shuf_idx = list(range(self.x.shape[0]))
         np.random.shuffle(shuf_idx)
         train_split = self.x.shape[0] // 10 * 9
         self.train_indices = shuf_idx[:train_split]
@@ -100,7 +100,7 @@ class InferenceData(DataSet):
 
     def load_params(self):
         param_fn = os.path.join(self.model_dir, 'params.cpk')
-        with open(param_fn) as f:
+        with open(param_fn, 'rb') as f:
             params = cPickle.load(f)
         for param, val in params.items():
             if not param.startswith('data.'):
@@ -109,7 +109,8 @@ class InferenceData(DataSet):
 
     def load_data(self, stream):
         try:
-            self.samples = [line.decode('utf8').strip().split('\t')[0] for line in stream]
+            self.samples = [line.decode('utf8').strip().split('\t')[0]
+                            for line in stream]
         except AttributeError:
             self.samples = [line.strip().split('\t')[0] for line in stream]
         self.maxlen = self.x_shape[1]

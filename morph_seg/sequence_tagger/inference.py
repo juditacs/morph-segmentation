@@ -47,7 +47,7 @@ class Inference(object):
                 if self.decoded[i][j+offset] == 'B':
                     out.append(' ')
                 out.append(s)
-            print(''.join(out).strip().encode('utf8'))
+                print(''.join(out).strip())
 
 
 def main():
@@ -55,6 +55,7 @@ def main():
     inf = Inference(args.model_dir, stdin)
     inf.run_inference()
     inf.print_segmentation()
+
 
 if __name__ == '__main__':
     main()

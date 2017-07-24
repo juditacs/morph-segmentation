@@ -9,13 +9,14 @@
 from argparse import ArgumentParser
 from sys import stdin
 import os
-import cPickle
+from six.moves import cPickle
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
 
-from keras.layers import Input, Dense, Embedding, Masking, Bidirectional, Dropout, Conv1D, MaxPooling1D
+from keras.layers import Input, Dense, Embedding, Masking, \
+        Bidirectional, Dropout, Conv1D
 from keras.layers.recurrent import LSTM, GRU
 from keras.models import Model
 from keras.layers.wrappers import TimeDistributed
@@ -156,7 +157,7 @@ class SequenceTagger(object):
         start = datetime.now()
         history = self.model.fit(
             self.dataset.x_train, self.dataset.y_train,
-            epochs=5000,
+            epochs=50,
             batch_size=self.config.batch_size,
             validation_split=0.2,
             callbacks=callbacks,
@@ -190,7 +191,7 @@ class SequenceTagger(object):
             d = self.to_dict()
             params_fn = os.path.join(self.config.save_model_dir,
                                      'params.cpk')
-            with open(params_fn, 'w') as f:
+            with open(params_fn, 'wb') as f:
                 cPickle.dump(d, f)
 
     def log(self):
@@ -219,20 +220,19 @@ class CNNTagger(SequenceTagger):
     def define_model(self):
         input_layer = Input(batch_shape=(None, self.dataset.maxlen),
                             dtype='int8')
-        emb = Embedding(len(self.dataset.x_vocab),
-                        self.config.embedding_size)(input_layer)
-        emb = Dropout(0.8)(emb)
-        conv = Conv1D(3, 2, padding='same', activation='relu', strides=1)(emb)
-        maxp = MaxPooling1D(pool_size=1)(conv)
-        l = LSTM(self.dataset.maxlen, return_sequences=True)(maxp)
-        l = TimeDistributed(Dense(len(self.dataset.y_vocab),
-                                  activation='softmax'))(l)
-        #l = Dense(len(self.dataset.y_vocab))(l)
-        #l = Dense(len(self.dataset.y_vocab))(maxp)
-        #l = Dense
-        self.model = Model(inputs=input_layer, outputs=l)
+        layer = Embedding(len(self.dataset.x_vocab),
+                          self.config.embedding_size)(input_layer)
+        layer = Dropout(0.8)(layer)
+        layer = Conv1D(30, 5, padding='same', activation='relu',
+                       strides=1)(layer)
+        # layer = MaxPooling1D(pool_size=2)(layer)
+        layer = LSTM(self.dataset.maxlen, return_sequences=True)(layer)
+        layer = TimeDistributed(Dense(len(self.dataset.y_vocab),
+                                      activation='softmax'))(layer)
+        self.model = Model(inputs=input_layer, outputs=layer)
         self.model.compile(optimizer=self.config.optimizer,
                            loss='categorical_crossentropy')
+
 
 def main():
     args = parse_args()
