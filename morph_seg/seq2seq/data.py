@@ -5,219 +5,147 @@
 # Copyright © 2017 Judit Acs <judit@sch.bme.hu>
 #
 # Distributed under terms of the MIT license.
-from __future__ import unicode_literals
-
-import os
 import numpy as np
-import json
+
+from morph_seg.data import DataSet
 
 
-class DataSet(object):
-    def __init__(self):
-        self.vocab_enc = {"": 0}
-        self.vocab_dec = {"": 0}
-        self.samples = []
+class Batch(object):
+    def __init__(self, input_enc, input_len_enc, input_dec, input_len_dec,
+                 target, target_len):
+        self.input_enc = input_enc
+        self.input_len_enc = input_len_enc
+        self.input_dec = input_dec
+        self.input_len_dec = input_len_dec
+        self.target = target
+        self.target_len = target_len
 
-    def read_data_from_stream(self, stream, delimiter='', limit=0):
-        for line in stream:
-            # dirty hack for Python 2 support
-            try:
-                line = line.decode("utf8")
-            except AttributeError:
-                pass
-            if not line.strip():
-                continue
-            enc, dec = line.rstrip('\n').split('\t')
-            if limit > 0 and len(self.samples) > limit:
-                break
-            if delimiter:
-                self.samples.append((enc.split(delimiter),
-                                     dec.split(delimiter)))
-            else:
-                self.samples.append((list(enc), list(dec)))
 
-    def vectorize_samples(self, frozen=False):
-        data_enc = []
-        data_dec = []
-        try:
-            self.maxlen_enc
-        except AttributeError:
-            self.maxlen_enc = max(len(s[0]) for s in self.samples)
-        try:
-            self.maxlen_dec
-        except AttributeError:
-            self.maxlen_dec = max(len(s[1]) for s in self.samples) + 2
-        dec_pad_length = self.maxlen_dec - 2
-        for enc, dec in self.samples:
-            padded = ['PAD' for p in range(self.maxlen_enc - len(enc))] + enc
-            if frozen:
-                data_enc.append(
-                    [self.vocab_enc.get(c, 0)
-                     for c in padded]
-                )
-            else:
-                data_enc.append(
-                    [self.vocab_enc.setdefault(c, len(self.vocab_enc))
-                     for c in padded]
-                )
-            padded = ['GO'] + dec + \
-                ['PAD' for p in range(dec_pad_length - len(dec))] + ['STOP']
-            if frozen:
-                data_dec.append(
-                    [self.vocab_dec.get(c, 0)
-                     for c in padded]
-                )
-            else:
-                data_dec.append(
-                    [self.vocab_dec.setdefault(c, len(self.vocab_dec))
-                     for c in padded]
-                )
-        self.data_enc = np.array(data_enc)
-        self.data_dec = np.array(data_dec)
+class Seq2seqDataSet(DataSet):
 
-    def split_train_valid_test(self, valid_ratio=.1, test_ratio=.1):
-        N = self.data_enc.shape[0]
-        if N < 3:
-            raise ValueError("Must have at least 3 training examples")
-        if N * valid_ratio < 1:
-            valid_ratio = 1.0 / N
-        if N * test_ratio < 1:
-            test_ratio = 1.0 / N
-        train_end = int((1 - valid_ratio - test_ratio) * N)
-        valid_end = int((1 - test_ratio) * N)
-        shuf_ind = np.arange(N)
-        np.random.shuffle(shuf_ind)
-        self.train_idx = shuf_ind[:train_end]
-        self.valid_idx = shuf_ind[train_end:valid_end]
-        self.test_idx = shuf_ind[valid_end:]
-        self.data_enc_train = self.data_enc[self.train_idx]
-        self.data_dec_train = self.data_dec[self.train_idx]
-        self.data_enc_valid = self.data_enc[self.valid_idx]
-        self.data_dec_valid = self.data_dec[self.valid_idx]
-        self.data_enc_test = self.data_enc[self.test_idx]
-        self.data_dec_test = self.data_dec[self.test_idx]
-
-    def get_batch(self, batch_size):
-        try:
-            self.data_enc
-        except AttributeError:
-            self.vectorize_samples()
-        indices = np.random.choice(self.data_enc_train.shape[0], batch_size)
-        return self.data_enc_train[indices], self.data_dec_train[indices]
-
-    def to_dict(self):
-        d = {
-            'enc_shape': self.data_enc.shape,
-            'dec_shape': self.data_dec.shape,
-            'train_enc_shape': self.data_enc_train.shape,
-            'train_dec_shape': self.data_dec_train.shape,
-            'val_enc_shape': self.data_enc_valid.shape,
-            'val_dec_shape': self.data_dec_valid.shape,
-            'test_enc_shape': self.data_enc_test.shape,
-            'test_dec_shape': self.data_dec_test.shape,
-        }
-        labels, counts = np.unique(self.data_dec, return_counts=True)
-        inv_vocab = {v: k for k, v in self.vocab_dec.items()}
-        classes = dict(zip(map(inv_vocab.get, labels), counts))
-        d['label_counts'] = classes
-        return d
-
-    def __get_samples(self, idx, include_input=False):
-        if include_input is True:
-            return [
-                (''.join(self.samples[i][0]), ''.join(self.samples[i][1]))
-                for i in idx
-            ]
+    def pad_sample(self, enc, dec):
+        if self.config.pad_left:
+            enc = ['PAD'] * (self.maxlen_enc-len(enc)) + enc
         else:
-            return [''.join(self.samples[i][0]) for i in idx]
+            enc = enc + ['PAD'] * (self.maxlen_enc-len(enc))
+        dec = ['SOS'] + dec + ['EOS'] + ['PAD'] * (
+            self.maxlen_dec-len(dec)-1)
+        return enc, dec
 
-    def get_train_samples(self):
-        return self.__get_samples(self.train_idx, False)
+    def is_too_long(self, enc, dec):
+        return self.config.derive_maxlen is False and \
+           (len(enc) > self.config.maxlen_enc or
+            len(dec) > self.config.maxlen_dec-2)  # GO and STOP symbols
 
-    def get_valid_samples(self):
-        return self.__get_samples(self.valid_idx, False)
+    def set_maxlens(self):
+        if self.config.derive_maxlen is True:
+            self.maxlen_enc = max(len(s[0]) for s in self.samples)
+            self.maxlen_dec = max(len(s[1]) for s in self.samples) + 1
+        else:
+            self.maxlen_enc = self.config.maxlen_enc
+            self.maxlen_dec = self.config.maxlen_dec
 
-    def get_test_samples(self, include_test_input=False):
-        return self.__get_samples(self.test_idx, include_test_input)
+    def create_target(self):
+        self.target = np.concatenate(
+            (self.data_dec[:, 1:], np.zeros((self.data_dec.shape[0], 1))),
+            axis=1)
+        self.target_len = self.len_dec - 1
 
-    def save_vocabularies(self, model_dir):
-        enc_fn = os.path.join(model_dir, 'encoding_vocab')
-        DataSet.write_dict_to_file(self.vocab_enc, enc_fn)
-        dec_fn = os.path.join(model_dir, 'decoding_vocab')
-        DataSet.write_dict_to_file(self.vocab_dec, dec_fn)
+    def featurize(self):
+        super().featurize()
+        self.create_target()
+        self.maxlen_enc = self.data_enc.shape[1]
+        self.maxlen_dec = self.data_dec.shape[1]
 
-    def save_params(self, model_dir):
-        fn = os.path.join(model_dir, 'dataset_params.json')
-        d = {
-            'maxlen_enc': self.maxlen_enc,
-            'maxlen_dec': self.maxlen_enc,
-        }
-        with open(fn, 'w') as f:
-            json.dump(d, f)
+    def get_training_batch(self, batch_size=None):
+        if batch_size is None:
+            batch_size = self.config.batch_size
+        indices = np.random.choice(self.train_idx, batch_size)
+        return self.__get_training_batch(indices)
 
-    @staticmethod
-    def write_dict_to_file(dict_, filename):
-        with open(filename, 'w') as f:
-            try:
-                f.write('\n'.join(
-                    '{}\t{}'.format(k, v) for k, v in dict_.items()
-                ).encode('utf8'))
-            except TypeError:
-                f.write('\n'.join(
-                    '{}\t{}'.format(k, v) for k, v in dict_.items()
-                ))
+    def get_val_batch(self, batch_size=None):
+        if batch_size is None:
+            batch_size = self.config.batch_size
+        indices = np.random.choice(self.val_idx, batch_size)
+        return self.__get_training_batch(indices)
+
+    def __get_training_batch(self, indices):
+        return Batch(
+            input_enc=self.data_enc[indices].T,
+            input_dec=self.data_dec[indices].T,
+            input_len_enc=self.len_enc[indices],
+            input_len_dec=self.len_dec[indices],
+            target=self.target[indices].T,
+            target_len=self.target_len[indices],
+        )
+
+    def get_test_data_batches(self):
+        for i in range(0, len(self.test_idx)-self.config.batch_size+1,
+                       self.config.batch_size):
+            start = i
+            end = i+self.config.batch_size
+            indices = self.test_idx[start:end]
+            batch = self.__get_training_batch(indices)
+            target = np.zeros(shape=(end-start, self.target.shape[1]))
+            target[:, 0] = self.SOS
+            target_len = np.ones(shape=(target.shape[0],)) * target.shape[1]
+            batch.target = target.T
+            batch.target_len = target_len
+            yield batch
+
+    def decode_enc(self, indices):
+        return self.__decode(indices, self.vocab_enc)
+
+    def decode_dec(self, indices):
+        return self.__decode(indices, self.vocab_dec)
+
+    def __decode(self, indices, vocab):
+        delimiter = self.config.delimiter
+        delimiter = '' if delimiter is None else delimiter
+        decoded = []
+        for sample in indices:
+            dec = [vocab.inv_vocab[s] for s in sample]
+            dec = [d for d in dec if d not in vocab.skip_symbols]
+            decoded.append(delimiter.join(dec))
+        return decoded
 
 
-class EncoderInput(DataSet):
-    """Encoder input without output.
-    This class should be used for inference,
-    when gold standard decoding data is not available.
-    """
-    def __init__(self, model_dir):
-        enc_vocab_fn = os.path.join(model_dir, 'encoding_vocab')
-        self.vocab_enc = read_vocab(enc_vocab_fn)
-        dec_vocab_fn = os.path.join(model_dir, 'decoding_vocab')
-        self.vocab_dec = read_vocab(dec_vocab_fn)
-        conf_fn = os.path.join(model_dir, 'dataset_params.json')
-        self.load_params(conf_fn)
+class Seq2seqInferenceDataSet(Seq2seqDataSet):
+    def __init__(self, config, stream_or_file):
+        super().__init__(config, stream_or_file)
+        self.vocab_enc.frozen = True
+        self.vocab_dec.frozen = True
+
+    def load_data_from_stream(self, stream):
         self.samples = []
-
-    def load_params(self, fn):
-        with open(fn) as f:
-            for param, val in json.load(f).items():
-                setattr(self, param, val)
-
-    def read_data_from_stream(self, stream, delimiter='', limit=0):
-        """Reads unlabeled data from a stream"""
+        self.set_maxlens()
         for line in stream:
-            try:
-                line = line.decode("utf8")
-            except AttributeError:
-                pass
-            if not line.strip():
-                continue
-            enc = line.rstrip('\n')
-            if limit > 0 and len(self.samples) > limit:
-                break
-            if len(enc) > self.maxlen_enc:
-                enc = enc[-self.maxlen_enc:]
-            if delimiter:
-                self.samples.append((enc.split(delimiter), ''))
+            enc = line.rstrip('\n').split('\t')[0]
+            if self.is_too_long(enc, ''):
+                enc = enc[:self.maxlen_enc]
+            if self.config.reverse_input:
+                enc = enc[::-1]
+            self.samples.append(enc)
+        self.featurize()
+
+    def set_maxlens(self):
+        self.maxlen_enc = self.config.maxlen_enc
+        self.maxlen_dec = self.config.maxlen_dec
+
+    def featurize(self):
+        self.len_enc = np.array([len(s) for s in self.samples])
+        self.len_dec = np.zeros_like(self.len_enc)
+        data_enc = []
+        for sample in self.samples:
+            if self.config.delimiter is None:
+                sample = list(sample)
             else:
-                self.samples.append((list(enc), list('')))
+                sample = sample.split(self.config.delimiter)
+            padded = sample + ['PAD'] * (self.maxlen_enc-len(sample))
+            featurized = [self.vocab_enc[c] for c in padded]
+            data_enc.append(featurized)
+        self.data_enc = np.array(data_enc)
+        self.target = np.zeros((self.data_enc.shape[0], self.maxlen_dec))
 
-    @property
-    def test_idx(self):
-        return range(len(self.samples))
-
-
-def read_vocab(filename):
-    with open(filename) as f:
-        vocab = {}
-        for line in f:
-            try:
-                fd = line.decode('utf8').split('\t')
-            except AttributeError:
-                fd = line.split('\t')
-            vocab[fd[0]] = int(fd[1])
-        return vocab
+    def get_inference_batch(self):
+        return self.data_enc.T, self.len_enc, self.target.T

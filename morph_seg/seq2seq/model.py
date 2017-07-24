@@ -5,267 +5,403 @@
 # Copyright © 2017 Judit Acs <judit@sch.bme.hu>
 #
 # Distributed under terms of the MIT license.
-from __future__ import unicode_literals
-
-from datetime import datetime
-import numpy as np
-import logging
 import os
-import json
+import logging
 
 import tensorflow as tf
+from tensorflow.python.layers import core as layers_core
+
+from morph_seg.seq2seq.result import Seq2seqResult
 
 
-class SimpleSeq2seq(object):
-    """Wrapper class for TF legacy seq2seq module"""
-
-    def __init__(self, cell_type, cell_size, embedding_size,
-                 layers=None, model_dir=None, **kwargs):
-        self.init_cell(cell_type, cell_size, layers)
-        self.cell_type = cell_type
-        self.cell_size = cell_size
-        self.layers = layers
-        self.embedding_size = embedding_size
-        self.model_dir = model_dir
-        self.result = {}
-        tf.reset_default_graph()
-
-    def init_cell(self, cell_type, cell_size, layers=None):
-        if layers is None or layers == 1:
-            if cell_type == 'LSTM':
-                self.cell = lambda: tf.contrib.rnn.BasicLSTMCell(cell_size)
-            elif cell_type == 'GRU':
-                self.cell = lambda: tf.contrib.rnn.GRUCell(cell_size)
-        else:
-            if cell_type == 'LSTM':
-                self.cell = lambda: tf.contrib.rnn.MultiRNNCell(
-                    [tf.contrib.rnn.BasicLSTMCell(cell_size)
-                     for _ in range(layers)]
-                )
-            elif cell_type == 'GRU':
-                self.cell = lambda: tf.contrib.rnn.MultiRNNCell(
-                    [tf.contrib.rnn.GRUCell(cell_size) for _ in range(layers)]
-                )
-
-    def create_model(self, dataset):
-        self.create_placeholders(dataset)
-        self.create_train_ops(dataset)
-
-    def create_placeholders(self, dataset):
-        self.buckets = [(dataset.maxlen_enc, dataset.maxlen_dec-1)]
-        self.enc_inp = [
-            tf.placeholder(tf.int32, shape=[None], name='enc{}'.format(i))
-            for i in range(dataset.maxlen_enc)
-        ]
-        self.dec_inp = [
-            tf.placeholder(tf.int32, shape=[None], name='dec{}'.format(i))
-            for i in range(dataset.maxlen_dec)
-        ]
-        self.target_weights = [
-            tf.placeholder(tf.float32, shape=[None], name='target{}'.format(i))
-            for i in range(dataset.maxlen_dec)
-        ]
-        self.feed_previous = tf.placeholder(tf.bool)
-
-    def initialize_seq2seq(self, dataset):
-        do, dm = tf.contrib.legacy_seq2seq.embedding_attention_seq2seq(
-            self.enc_inp, self.dec_inp,
-            cell=self.cell(),
-            num_encoder_symbols=len(dataset.vocab_enc),
-            num_decoder_symbols=len(dataset.vocab_dec),
-            embedding_size=self.embedding_size,
-            dtype=tf.float32,
-            feed_previous=self.feed_previous,
-        )
-        self.dec_out = do
-        self.dec_memory = dm
-
-    def create_train_ops(self, dataset):
-        def seq2seq_f(enc_inp, dec_inp, do_decode):
-            return tf.contrib.legacy_seq2seq.embedding_attention_seq2seq(
-                enc_inp, dec_inp,
-                cell=self.cell(),
-                num_encoder_symbols=len(dataset.vocab_enc),
-                num_decoder_symbols=len(dataset.vocab_dec),
-                embedding_size=self.embedding_size,
-                dtype=tf.float32,
-                feed_previous=do_decode,
-            )
-        targets = [self.dec_inp[i + 1] for i in range(len(self.dec_inp) - 1)]
-        self.outputs, self.loss = tf.contrib.legacy_seq2seq.model_with_buckets(
-            self.enc_inp, self.dec_inp,
-            targets, self.target_weights, self.buckets,
-            lambda x, y: seq2seq_f(x, y, self.feed_previous)
-        )
-
-        def create_optimizer():
-            return tf.train.RMSPropOptimizer(0.01)
-
-        self.train_ops = [create_optimizer().minimize(l) for l in self.loss]
-
-    def run_inference(self, dataset, model_path):
-        """
-        Run inference on encoding data.
-        The dataset parameter must have a data_dec attribute,
-        but its value is ignored.
-        Inference is run once on the full dataset,
-        no batching used.
-        """
+class Seq2seqModel(object):
+    def __init__(self, config, dataset):
+        self.config = config
         self.dataset = dataset
-        saver = tf.train.Saver()
-        with tf.Session() as sess:
-            sess.run(tf.global_variables_initializer())
-            saver.restore(sess, model_path)
-            feed_dict = self.populate_feed_dict(
-                dataset.data_enc,
-                dataset.data_dec,
-            )
-            feed_dict[self.feed_previous] = True
-            out = sess.run(self.outputs, feed_dict=feed_dict)
-            self.test_out = out
+        initializer = tf.random_uniform_initializer(
+            -1.0, 1.0, seed=12)
+        tf.get_variable_scope().set_initializer(initializer)
+        self.create_placeholders()
+        self.create_encoder()
+        self.create_dec_debug()
 
-    def train_and_test(self, dataset, batch_size, epochs=100000,
-                       patience=5, val_loss_th=1e-4):
-        self.result['train_loss'] = []
-        self.result['test_loss'] = []
-        self.result['val_loss'] = []
-        self.prev_val_loss = -10
-        self.result['patience'] = patience
-        self.result['val_loss_th'] = val_loss_th
-        self.early_cnt = patience
-        saver = tf.train.Saver()
+        self.create_train_ops()
+
+        self.result = Seq2seqResult()
+
+    def create_cell(self, cell_size=None):
+        if cell_size is None:
+            cell_size = self.config.cell_size
+        if self.config.cell_type == 'GRU':
+            return tf.contrib.rnn.GRUCell(cell_size)
+        return tf.contrib.rnn.BasicLSTMCell(cell_size)
+
+    def create_placeholders(self):
+        self.input_enc = tf.placeholder(
+            shape=[self.dataset.maxlen_enc, None], dtype=tf.int32)
+        self.input_len_enc = tf.placeholder(shape=[None], dtype=tf.int32)
+
+        self.target = tf.placeholder(
+            shape=[self.dataset.maxlen_dec, None], dtype=tf.int32)
+        self.target_len = tf.placeholder(shape=[None], dtype=tf.int32)
+
+        self.input_dec = tf.concat([tf.fill([1, tf.shape(self.target)[1]], self.dataset.SOS),
+                                    self.target[:-1, :]], 0)
+        #self.input_dec = tf.placeholder(
+            #shape=[self.dataset.maxlen_dec, None], dtype=tf.int32)
+        #self.input_len_dec = tf.placeholder(shape=[None], dtype=tf.int32)
+
+
+    def create_encoder(self):
+        self.create_embedding()
+        if self.config.bidirectional:
+            self.create_bidirectional_encoder()
+        else:
+            self.create_unidirectional_encoder()
+
+    def create_bidirectional_encoder(self):
+        cell_size = self.config.cell_size
+        fw_cell = self.__create_rnn_block(cell_size)
+        bw_cell = self.__create_rnn_block(cell_size)
+        o, e = tf.nn.bidirectional_dynamic_rnn(
+            fw_cell, bw_cell, self.encoder_input, dtype=tf.float32,
+            sequence_length=self.input_len_enc,
+            time_major=True,
+        )
+        self.encoder_outputs = tf.concat(o, -1)
+        self.encoder_state = e
+
+    def __create_rnn_block(self, cell_size):
+        num_residual = self.config.num_residual
+        cells = []
+        for i in range(int(self.config.num_layers)):
+            if i >= self.config.num_layers-num_residual:
+                cells.append(tf.contrib.rnn.ResidualWrapper(
+                    self.create_cell(cell_size)))
+            else:
+                cells.append(self.create_cell(cell_size))
+        if len(cells) > 1:
+            return tf.contrib.rnn.MultiRNNCell(cells)
+        return cells[0]
+
+    def create_unidirectional_encoder(self):
+        cells = self.__create_rnn_block(self.config.cell_size)
+        o, e = tf.nn.dynamic_rnn(
+            cells, self.encoder_input, dtype=tf.float32, sequence_length=self.input_len_enc
+        )
+        self.encoder_outputs = o
+        self.encoder_state = e
+
+    def create_embedding(self):
+        with tf.variable_scope("embedding"):
+            self.embedding_enc = tf.get_variable(
+                "embedding_enc",
+                [self.dataset.vocab_enc_size, self.config.embedding_dim_enc],
+                dtype=tf.float32)
+            self.encoder_input = tf.nn.embedding_lookup(
+                self.embedding_enc, self.input_enc)
+
+            if self.config.share_vocab:
+                self.embedding_dec = self.embedding_enc
+            else:
+                self.embedding_dec = tf.get_variable(
+                    "embedding_dec",
+                    [self.dataset.vocab_dec_size, self.config.embedding_dim_dec],
+                    dtype=tf.float32)
+
+            self.decoder_emb_input = tf.nn.embedding_lookup(
+                self.embedding_dec, self.input_dec
+            )
+
+    def create_simple_decoder_cell(self):
+        self.decoder_cell = self.create_cell()
+        dec_init = self.encoder_state
+        return dec_init
+
+    def create_attention_cell(self):
+        self.decoder_cell = self.create_cell()
+        self.create_attention()
+        self.decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
+            self.decoder_cell,
+            self.attention,
+            attention_layer_size=self.config.attention_layer_size,
+            alignment_history=False,
+        )
+        dec_init = self.decoder_cell.zero_state(
+            tf.shape(self.decoder_emb_input)[1], tf.float32).clone(cell_state=self.encoder_state)
+        #dec_init = self.decoder_cell.zero_state(
+            #self.config.batch_size, tf.float32).clone(cell_state=self.encoder_state)
+        return dec_init
+
+    def create_dec_debug(self):
+        with tf.variable_scope("decoder") as scope:
+            #self.create_attention()
+            attention_states = tf.transpose(self.encoder_outputs, [1, 0, 2])
+            attention_mechanism = tf.contrib.seq2seq.LuongAttention(
+                self.config.cell_size, attention_states, scale=True,
+                memory_sequence_length=self.input_len_enc
+            )
+
+            cell_list = []
+            cell = tf.contrib.rnn.BasicLSTMCell(self.config.cell_size)
+            cell = tf.contrib.rnn.DropoutWrapper(cell=cell, input_keep_prob=0.2)
+            cell_list.append(cell)
+            cell = tf.contrib.rnn.BasicLSTMCell(self.config.cell_size)
+            cell = tf.contrib.rnn.DropoutWrapper(cell=cell, input_keep_prob=0.2)
+            cell_list.append(cell)
+            cell = tf.contrib.rnn.MultiRNNCell(cell_list)
+
+            cell = tf.contrib.seq2seq.AttentionWrapper(cell, attention_mechanism,
+                                               attention_layer_size=self.config.cell_size,
+                                               name="rohadek")
+            helper = tf.contrib.seq2seq.TrainingHelper(
+                self.decoder_emb_input, self.target_len, time_major=True
+            )
+            self.decoder_initial_state = cell.zero_state(
+                tf.shape(self.decoder_emb_input)[1], tf.float32).clone(
+                    cell_state=self.encoder_state)
+            decoder = tf.contrib.seq2seq.BasicDecoder(
+                cell, helper, self.decoder_initial_state
+            )
+            outputs, final, _ = tf.contrib.seq2seq.dynamic_decode(
+                decoder,
+                output_time_major=True,
+                swap_memory=True,
+                scope=scope
+            )
+            self.output_proj = layers_core.Dense(self.dataset.vocab_dec_size,
+                                            name="output_proj")
+            self.logits = self.output_proj(outputs.rnn_output)
+            self.decoder_cell = cell
+
+    def create_decoder(self):
+        with tf.variable_scope("decoder") as dec_scope:
+            self.decoder_emb_input = tf.nn.embedding_lookup(
+                self.embedding_dec, self.input_dec
+            )
+            if self.config.attention_type is None:
+                dec_init = self.create_simple_decoder_cell()
+            else:
+                dec_init = self.create_attention_cell()
+            helper = tf.contrib.seq2seq.TrainingHelper(self.decoder_emb_input,
+                                                    self.target_len, time_major=True)
+            decoder = tf.contrib.seq2seq.BasicDecoder(self.decoder_cell,
+                                                    helper, dec_init)
+            outputs, final, _ = tf.contrib.seq2seq.dynamic_decode(
+                decoder,
+                output_time_major=True,
+                swap_memory=True,
+                scope=dec_scope)
+            self.output_proj = layers_core.Dense(self.dataset.vocab_dec_size,
+                                            name="output_proj")
+            self.logits = self.output_proj(outputs.rnn_output)
+
+    def create_attention(self):
+        attention_states = tf.transpose(self.encoder_outputs, [1, 0, 2])
+        if self.config.attention_type == 'luong':
+            self.attention = tf.contrib.seq2seq.LuongAttention(
+                self.config.cell_size,
+                attention_states,
+                memory_sequence_length=self.input_len_enc
+            )
+        elif self.config.attention_type == 'bahdanau':
+            self.attention = tf.contrib.seq2seq.BahdanauAttention(
+                self.config.cell_size,
+                attention_states,
+                memory_sequence_length=self.input_len_enc
+            )
+        else:
+            raise ValueError("Unknown attention type: {}".format(
+                self.config.attention_type))
+
+    def create_train_ops(self):
+        max_time = tf.shape(self.logits)[0]
+        crossent = tf.nn.sparse_softmax_cross_entropy_with_logits(
+            labels=self.target[:max_time, :], logits=self.logits
+        )
+        target_weights = tf.sequence_mask(
+            self.target_len, max_time, tf.float32)
+        target_weights = tf.transpose(target_weights)
+        self.loss = tf.reduce_sum(crossent * target_weights) / tf.to_float(
+            self.config.batch_size)
+        self.create_optimizer()
+        params = tf.trainable_variables()
+        gradients = tf.gradients(self.loss, params)
+        self.update = self.optimizer.apply_gradients(zip(gradients, params))
+
+        self.early_cnt = self.config.patience
+
+    def create_optimizer(self):
+        self.optimizer = getattr(tf.train, self.config.optimizer)(
+            **self.config.optimizer_kwargs)
+
+    def run_train_test(self):
+        self.dataset.split_train_valid_test(
+            valid_ratio=.1, test_size=self.config.test_size)
         with tf.Session() as sess:
-            start = datetime.now()
+            self.result.set_start()
             sess.run(tf.global_variables_initializer())
-            for iter_no in range(epochs):
-                self.run_train_step(sess, dataset, batch_size)
-                self.run_validation(sess, dataset, iter_no)
+
+            for iter_no in range(int(self.config.max_epochs)):
+                self.run_train_step(sess)
+                self.run_validation(sess)
                 if self.do_early_stopping():
+                    self.result.early_topped = True
                     logging.info('Early stopping at iteration {}, '
                                  'valid loss: {}'.format(
-                                     iter_no+1, self.result['val_loss'][-1]))
+                                     iter_no+1, self.result.val_loss[-1]))
                     break
+                if iter_no % 100 == 99:
+                    logging.info('Iter {}, train loss: {}, val loss: {}'.format(
+                        iter_no+1, self.result.train_loss[-1],
+                        self.result.val_loss[-1]))
             else:
-                logging.info('Training completed without early stopping. '
-                             'Iterations run: {}'.format(epochs))
-            if self.model_dir is not None:
-                model_prefix = os.path.join(self.model_dir, 'model')
-                saver.save(sess, model_prefix)
-                param_fn = os.path.join(self.model_dir, 'model_params.json')
-                self.save_params(param_fn)
-                dataset.save_vocabularies(self.model_dir)
-                dataset.save_params(self.model_dir)
-            self.run_test(sess, dataset)
-            self.result['epochs_run'] = iter_no+1
-            self.result['running_time'] = (datetime.now() -
-                                           start).total_seconds()
-            # self.run_train_as_test(sess, dataset)
+                self.result.early_topped = False
+            self.result.epochs_run = iter_no + 1
 
-    def save_params(self, fn):
-        d = {
-            'cell_type': self.cell_type,
-            'cell_size': self.cell_size,
-            'embedding_size': self.embedding_size,
-            'layers': self.layers,
+            self.result.set_end()
+
+            if self.config.save_model:
+                if self.config.test_size > 0:
+                    self.run_and_save_test(sess)
+                self.save_everything(sess)
+
+    def run_train_step(self, sess):
+        batch = self.dataset.get_training_batch()
+        feed_dict = {
+            self.input_enc: batch.input_enc,
+            self.input_len_enc: batch.input_len_enc,
+            #self.input_dec: batch.input_dec,
+            #self.input_len_dec: batch.input_len_dec,
+            self.target: batch.target,
+            self.target_len: batch.target_len,
         }
-        with open(fn, 'w') as f:
-            json.dump(d, f)
+        _, _, loss = sess.run([self.encoder_input, self.update, self.loss],
+                              feed_dict=feed_dict)
+        self.result.train_loss.append(float(loss))
+
+    def run_validation(self, sess):
+        batch = self.dataset.get_val_batch()
+        feed_dict = {
+            self.input_enc: batch.input_enc,
+            self.input_len_enc: batch.input_len_enc,
+            #self.input_dec: batch.input_dec,
+            #self.input_len_dec: batch.input_len_dec,
+            self.target: batch.target,
+            self.target_len: batch.target_len,
+        }
+        loss = sess.run(self.loss, feed_dict=feed_dict)
+        self.result.val_loss.append(float(loss))
 
     def do_early_stopping(self):
-        if len(self.result['val_loss']) < self.result['patience']:
+        if len(self.result.val_loss) < self.config.patience:
             return False
         do_stop = False
         try:
-            if abs(self.result['val_loss'][-1] - self.result['val_loss'][-2]) \
-                    < self.result['val_loss_th']:
+            if abs(self.result.val_loss[-1] - self.result.val_loss[-2]) \
+                    < self.config.early_stopping_threshold:
                 self.early_cnt -= 1
                 if self.early_cnt == 0:
                     do_stop = True
             else:
-                self.early_cnt = self.result['patience']
+                self.early_cnt = self.config.patience
         except IndexError:
             pass
         return do_stop
 
-    def run_train_step(self, sess, dataset, batch_size):
-        batch_enc, batch_dec = dataset.get_batch(batch_size)
-        feed_dict = self.populate_feed_dict(batch_enc, batch_dec)
-        feed_dict[self.feed_previous] = True
-        _, train_loss = sess.run([self.train_ops, self.loss],
-                                 feed_dict=feed_dict)
-        self.result['train_loss'].append(sum(train_loss))
+    def run_and_save_test(self, sess):
+        decoded_in = []
+        decoded_out = []
+        for batch in self.dataset.get_test_data_batches():
+            feed_dict = {
+                self.input_enc: batch.input_enc,
+                self.input_len_enc: batch.input_len_enc,
+                #self.input_dec: batch.input_dec,
+                #self.input_len_dec: batch.input_len_dec,
+                self.target: batch.target,
+                self.target_len: batch.target_len,
+            }
+            sess.run(
+                [self.encoder_input, self.decoder_emb_input], feed_dict=feed_dict)
+            logits = sess.run(self.logits, feed_dict=feed_dict)
+            inp = self.dataset.decode_enc(batch.input_enc.T)
+            out = self.dataset.decode_dec(logits.argmax(axis=-1).T)
+            decoded_in.extend(inp)
+            decoded_out.extend(out)
+        with open(os.path.join(self.config.model_dir, 'test_output'), 'w') as f:
+            f.write('\n'.join(
+                '{}\t{}'.format(decoded_in[i], decoded_out[i])
+                for i in range(len(decoded_in))
+            ))
 
-    def run_validation(self, sess, dataset, iter_no=None):
-        feed_dict = self.populate_feed_dict(dataset.data_enc_valid,
-                                            dataset.data_dec_valid)
-        feed_dict[self.feed_previous] = True
-        val_loss = sess.run(self.loss, feed_dict=feed_dict)
-        if iter_no is not None and iter_no % 100 == 99:
-            logging.info('Iter {}, validation loss: {}'.format(
-                iter_no+1, val_loss))
-        self.result['val_loss'].append(sum(val_loss))
+    def save_everything(self, sess):
+        self.update_config_after_experiment()
+        logging.info("Saving experiment to model {}".format(
+            self.config.model_dir))
+        saver = tf.train.Saver()
+        model_fn = os.path.join(self.config.model_dir, 'tf', 'model')
+        saver.save(sess, model_fn)
+        config_fn = os.path.join(self.config.model_dir, 'config.yaml')
+        self.config.save_to_yaml(config_fn)
+        result_fn = os.path.join(self.config.model_dir, 'result.yaml')
+        self.result.save_to_yaml(result_fn)
 
-    def run_test(self, sess, dataset, save_output_fn=None):
-        test_enc = dataset.data_enc_test
-        test_dec = dataset.data_dec_test
-        feed_dict = self.populate_feed_dict(test_enc, test_dec)
-        feed_dict[self.feed_previous] = True
-        test_out, test_loss = sess.run([self.outputs, self.loss],
-                                       feed_dict=feed_dict)
-        self.result['test_loss'].append(sum(test_loss))
+        data_params_fn = os.path.join(self.config.model_dir, 'dataset.yaml')
+        self.dataset.params_to_yaml(data_params_fn)
+        self.dataset.save_vocabs()
 
-        self.test_out = test_out
+    def update_config_after_experiment(self):
+        self.config.maxlen_enc = self.dataset.maxlen_enc
+        self.config.maxlen_dec = self.dataset.maxlen_dec
+
+
+class Seq2seqInferenceModel(Seq2seqModel):
+    def __init__(self, config, dataset):
+        self.config = config
         self.dataset = dataset
 
-    def run_train_as_test(self, sess, dataset, batch_size=1024):
-        train_enc, train_dec = dataset.get_batch(batch_size)
-        feed_dict = self.populate_feed_dict(train_enc, train_dec)
-        feed_dict[self.feed_previous] = True
-        train_out, train_loss = sess.run([self.outputs, self.loss],
-                                         feed_dict=feed_dict)
-        self.train_out = train_out
+        self.create_placeholders()
+        self.create_encoder()
+        self.create_decoder()
 
-    def save_test_output(self, stream,
-                         include_test_input=False):
-        self.decode_test()
-        test_samples = self.dataset.get_test_samples(
-            include_test_input
-        )
-        if include_test_input:
-            test_samples = ['\t'.join(t) for t in test_samples]
-        try:
-            stream.write('\n'.join('{0}\t{1}'.format(gold, output)
-                                   for gold, output in zip(
-                                    test_samples, self.decoded)).encode('utf8'))
-        except TypeError:
-            stream.write('\n'.join('{0}\t{1}'.format(gold, output)
-                                   for gold, output in zip(
-                                    test_samples, self.decoded)))
+    def create_decoder(self):
+        super().create_dec_debug()
+        with tf.variable_scope("decoder", reuse=True) as scope:
+            helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
+                self.embedding_dec,
+                tf.fill([tf.shape(self.decoder_emb_input)[1]], self.dataset.SOS), self.dataset.EOS)
 
-    def decode_test(self, replace_pad=True):
-        inv_vocab = {v: k for k, v in self.dataset.vocab_dec.items()}
-        indices = np.zeros((self.test_out[0][0].shape[0],
-                            len(self.test_out[0])))
-        for si in range(len(self.test_out[0])):
-            maxi = self.test_out[0][si].argmax(axis=1)
-            indices[:, si] = maxi
-        decoded = []
-        for row in indices:
-            dec = ''.join(inv_vocab[r] for r in row)
-            if replace_pad:
-                dec = dec.replace('PAD', ' ').strip()
-                dec = dec.replace('STOP', ' ').strip()
-            decoded.append(dec)
-        self.decoded = decoded
+            #decoder = tf.contrib.seq2seq.BasicDecoder(self.decoder_cell, helper, self.decoder_initial_state)
+            self.output_proj = layers_core.Dense(self.dataset.vocab_dec_size,
+                                            name="output_proj")
+            decoder = tf.contrib.seq2seq.BasicDecoder(
+                self.decoder_cell, helper, self.decoder_initial_state, output_layer=self.output_proj
+            )
+            outputs, final, _ = tf.contrib.seq2seq.dynamic_decode(
+                decoder,
+                #output_time_major=True,
+                swap_memory=True,
+                scope=scope,
+                maximum_iterations=20
+            )
+            #self.logits = self.output_proj(outputs.rnn_output)
+            self.outputs = outputs
 
-    def populate_feed_dict(self, batch_enc, batch_dec):
-        feed_dict = {}
-        batch_size = batch_enc.shape[0]
-        target_weights = np.ones((batch_size, batch_dec.shape[1]),
-                                 dtype=np.float32)
-        for i in range(batch_enc.shape[1]):
-            feed_dict[self.enc_inp[i]] = batch_enc[:, i]
-        for i in range(batch_dec.shape[1]):
-            feed_dict[self.dec_inp[i]] = batch_dec[:, i]
-            feed_dict[self.target_weights[i]] = target_weights[:, i]
-        return feed_dict
+    def run_inference(self):
+        saver = tf.train.Saver()
+        with tf.Session() as sess:
+            sess.run(tf.global_variables_initializer())
+            model_path = os.path.join(self.config.model_dir, 'tf', 'model')
+            saver.restore(sess, model_path)
+            batch = self.dataset.get_inference_batch()
+            feed_dict = {
+                self.input_enc: batch[0],
+                self.input_len_enc: batch[1],
+                self.target: batch[2],
+            }
+            input_ids, output_ids = sess.run(
+                [self.input_enc, self.outputs.sample_id], feed_dict=feed_dict)
+            dec_in = self.dataset.decode_enc(input_ids.T)
+            dec_out = self.dataset.decode_dec(output_ids)
+            for i, s in enumerate(dec_in):
+                print("{}\t{}".format(s, dec_out[i]))
