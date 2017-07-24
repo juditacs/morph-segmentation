@@ -16,7 +16,8 @@ from keras.utils.np_utils import to_categorical
 
 
 class DataSet(object):
-    def __init__(self, stream_or_file=None):
+    def __init__(self, cfg, stream_or_file=None):
+        self.config = cfg
         self.x_vocab = {'PAD': 0}
         self.y_vocab = {'PAD': 0}
         self._load_stream_or_file(stream_or_file)
