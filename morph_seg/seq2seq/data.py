@@ -89,7 +89,7 @@ class Seq2seqDataSet(DataSet):
             target = np.zeros(shape=(end-start, self.target.shape[1]))
             target[:, 0] = self.SOS
             target_len = np.ones(shape=(target.shape[0],)) * target.shape[1]
-            batch.target = target
+            batch.target = target.T
             batch.target_len = target_len
             yield batch
 

@@ -77,8 +77,6 @@ class DataSet(object):
     def load_or_create_vocab(self):
         if self.config.vocab_enc_path and \
            os.path.exists(self.config.vocab_enc_path):
-            print("Loading vocabs")
-            print(self.config.vocab_enc_path)
             self.vocab_enc = Vocabulary.from_file(self.config.vocab_enc_path)
             if self.config.share_vocab:
                 self.vocab_dec = self.vocab_enc
@@ -185,6 +183,5 @@ class DataSet(object):
             yaml.dump(d, f)
 
     def save_vocabs(self):
-        print("Saving vocabs")
         self.vocab_enc.to_file(self.config.vocab_enc_path)
         self.vocab_dec.to_file(self.config.vocab_dec_path)

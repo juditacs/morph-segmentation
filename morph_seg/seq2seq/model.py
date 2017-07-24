@@ -324,8 +324,8 @@ class Seq2seqModel(object):
             sess.run(
                 [self.encoder_input, self.decoder_emb_input], feed_dict=feed_dict)
             logits = sess.run(self.logits, feed_dict=feed_dict)
-            inp = self.dataset.decode_enc(batch.input_enc)
-            out = self.dataset.decode_dec(logits.argmax(axis=-1))
+            inp = self.dataset.decode_enc(batch.input_enc.T)
+            out = self.dataset.decode_dec(logits.argmax(axis=-1).T)
             decoded_in.extend(inp)
             decoded_out.extend(out)
         with open(os.path.join(self.config.model_dir, 'test_output'), 'w') as f:
@@ -372,7 +372,6 @@ class Seq2seqInferenceModel(Seq2seqModel):
                 tf.fill([tf.shape(self.decoder_emb_input)[1]], self.dataset.SOS), self.dataset.EOS)
 
             #decoder = tf.contrib.seq2seq.BasicDecoder(self.decoder_cell, helper, self.decoder_initial_state)
-            print('%%%%%', self.dataset.vocab_dec_size)
             self.output_proj = layers_core.Dense(self.dataset.vocab_dec_size,
                                             name="output_proj")
             decoder = tf.contrib.seq2seq.BasicDecoder(
@@ -402,7 +401,7 @@ class Seq2seqInferenceModel(Seq2seqModel):
             }
             input_ids, output_ids = sess.run(
                 [self.input_enc, self.outputs.sample_id], feed_dict=feed_dict)
-            dec_in = self.dataset.decode_enc(input_ids)
+            dec_in = self.dataset.decode_enc(input_ids.T)
             dec_out = self.dataset.decode_dec(output_ids)
             for i, s in enumerate(dec_in):
                 print("{}\t{}".format(s, dec_out[i]))

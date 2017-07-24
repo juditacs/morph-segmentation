@@ -58,7 +58,6 @@ class Config(object):
 
     def derive_and_create_model_dir(self):
         # model_dir needs to be fully defined
-        print(self.is_training, "%%%%")
         if self.is_training is False:
             return
         i = 0
