@@ -11,6 +11,7 @@ from sys import stdin
 import os
 from six.moves import cPickle
 from datetime import datetime
+import copy
 
 import numpy as np
 import pandas as pd
@@ -23,29 +24,21 @@ from keras.layers.wrappers import TimeDistributed
 from keras.callbacks import EarlyStopping, TensorBoard
 
 from morph_seg.sequence_tagger.data import DataSet
+from morph_seg.config import Config
 
 
 def parse_args():
     p = ArgumentParser()
-    p.add_argument('--embedding-size', type=int, default=20,
-                   help="Dimension of input embedding")
-    p.add_argument('--cell-size', type=int, default=32,
-                   help="LSTM/GRU cell size")
-    p.add_argument('--cell-type', choices=['LSTM', 'GRU'],
-                   default='LSTM',
-                   help="Type of cell: LSTM or GRU")
-    p.add_argument('--bidirectional', action='store_true',
-                   help="Use BiDirectional LSTM")
-    p.add_argument('--layers', type=int, default=1,
-                   help="Number of recurrent layers")
-    p.add_argument('--batch-size', type=int, default=512)
-    p.add_argument('--log-results', action='store_true',
-                   help="Write experiment statistics including"
-                   "results to pandas dataframe")
-    p.add_argument('--dataframe-path', type=str, default='results.tsv',
-                   help="Path to results dataframe")
-    p.add_argument('--save-model-dir', type=str, default=None,
-                   help="Save trained model to HDF5 file")
+    p.add_argument('-t', '--train-file', default=stdin)
+    p.add_argument('-c', '--config', type=str,
+                   help="Location of YAML config")
+    p.add_argument('-p', '--parameters', type=str,
+                   help="Manually specify parameters."
+                   "This option allows overriding parameters"
+                   "from the config file."
+                   "Format: param1=val1,param2=val2")
+    p.add_argument('-a', '--architecture', choices=['RNN', 'CNN'],
+                   default='RNN')
     return p.parse_args()
 
 
@@ -56,42 +49,29 @@ class DictConvertible(object):
         return {param: getattr(self, param, None) for param in self.__slots__}
 
 
-class Config(DictConvertible):
-    """Configuration handler class.
-    The experiment's parameters are attributes of this class.
-    The set of attributes is predefined using the __slots__ magic
-    attribute.
-    Some attributes have default values that are used unless
-    they are specified upon creation.
-    """
+class LSTMConfig(Config):
 
-    defaults = {
+    defaults = copy.deepcopy(Config.defaults)
+
+    defaults.update({
+        'is_training': True,
         'log_dir': './logs',  # a subdir is created automatically
         'dataframe_path': 'results.tsv',
         'batch_size': 1024,
         'optimizer': 'Adam',
         'log_results': False,
         'log_tensorboard': False,
-        'save_model_dir': None,
         'layers': 1,
         'bidirectional': True,
         'patience': 0,
-    }
+        'activation': 'softmax',
+    })
     __slots__ = tuple(defaults.keys()) + (
         'cell_type', 'cell_size', 'embedding_size',
     )
 
-    def __init__(self, params):
-        """Populate Config object.
-        First the defaults are loaded, then the attributes
-        specified in the params arguments are overwritten.
-        Arguments:
-            - params: dictionary of parameter-value pairs
-        """
-        for param, value in Config.defaults.items():
-            setattr(self, param, value)
-        for param, value in params.items():
-            setattr(self, param, value)
+    def set_derivable_params(self):
+        super().set_derivable_params()
         if self.log_tensorboard is True:
             self.generate_logdir()
 
@@ -142,8 +122,10 @@ class SequenceTagger(object):
         for _ in range(self.config.layers):
             if self.config.bidirectional:
                 layer = Bidirectional(create_recurrent_layer())(layer)
+            else:
+                layer = create_recurrent_layer()(layer)
         mlp = TimeDistributed(Dense(len(self.dataset.y_vocab),
-                                    activation='softmax'))(layer)
+                                    activation=self.config.activation))(layer)
         self.model = Model(inputs=input_layer, outputs=mlp)
         self.model.compile(optimizer=self.config.optimizer,
                            loss='categorical_crossentropy')
@@ -157,7 +139,7 @@ class SequenceTagger(object):
         start = datetime.now()
         history = self.model.fit(
             self.dataset.x_train, self.dataset.y_train,
-            epochs=50,
+            epochs=self.config.max_epochs,
             batch_size=self.config.batch_size,
             validation_split=0.2,
             callbacks=callbacks,
@@ -185,14 +167,16 @@ class SequenceTagger(object):
             self.log()
 
     def save_model(self):
-        if self.config.save_model_dir is not None:
-            model_fn = os.path.join(self.config.save_model_dir, 'model.hdf5')
+        if self.config.model_dir is not None:
+            model_fn = os.path.join(self.config.model_dir, 'model.hdf5')
             self.model.save(model_fn)
             d = self.to_dict()
-            params_fn = os.path.join(self.config.save_model_dir,
+            params_fn = os.path.join(self.config.model_dir,
                                      'params.cpk')
             with open(params_fn, 'wb') as f:
                 cPickle.dump(d, f)
+            config_fn = os.path.join(self.config.model_dir, 'config.yaml')
+            self.config.save_to_yaml(config_fn)
 
     def log(self):
         d = self.to_dict()
@@ -206,8 +190,6 @@ class SequenceTagger(object):
 
     def to_dict(self):
         d = {}
-        for param, val in self.config.to_dict().items():
-            d['config.{}'.format(param)] = val
         for param, val in self.dataset.to_dict().items():
             d['data.{}'.format(param)] = val
         for param, val in self.result.to_dict().items():
@@ -216,16 +198,33 @@ class SequenceTagger(object):
         return d
 
 
+class CNNConfig(LSTMConfig):
+
+    defaults = copy.deepcopy(LSTMConfig.defaults)
+
+    defaults.update({
+        'dropout': 0.8,
+        'layers': [
+            {'filters': 30, 'kernel_size': 5, 'strides': 1,
+             'padding': 'same', 'activation': 'relu'},
+        ]
+    })
+    __slots__ = tuple(defaults.keys())
+
+
 class CNNTagger(SequenceTagger):
+
     def define_model(self):
         input_layer = Input(batch_shape=(None, self.dataset.maxlen),
                             dtype='int8')
         layer = Embedding(len(self.dataset.x_vocab),
                           self.config.embedding_size)(input_layer)
-        layer = Dropout(0.8)(layer)
-        layer = Conv1D(30, 5, padding='same', activation='relu',
-                       strides=1)(layer)
-        # layer = MaxPooling1D(pool_size=2)(layer)
+
+        layer = Dropout(self.config.dropout)(layer)
+
+        for lparams in self.config.layers:
+            layer = Conv1D(**lparams)(layer)
+
         layer = LSTM(self.dataset.maxlen, return_sequences=True)(layer)
         layer = TimeDistributed(Dense(len(self.dataset.y_vocab),
                                       activation='softmax'))(layer)
@@ -236,9 +235,20 @@ class CNNTagger(SequenceTagger):
 
 def main():
     args = parse_args()
-    cfg = Config(vars(args))
-    dataset = DataSet(stdin)
-    model = CNNTagger(dataset, cfg)
+    if args.architecture == 'CNN':
+        cfg = CNNConfig.load_from_yaml(
+            args.config, train_file=args.train_file,
+            param_str=args.parameters
+        )
+        dataset = DataSet(cfg, args.train_file)
+        model = CNNTagger(dataset, cfg)
+    else:
+        cfg = LSTMConfig.load_from_yaml(
+            args.config, train_file=args.train_file,
+            param_str=args.parameters
+        )
+        dataset = DataSet(cfg, args.train_file)
+        model = SequenceTagger(dataset, cfg)
     model.run_train_test()
 
 
