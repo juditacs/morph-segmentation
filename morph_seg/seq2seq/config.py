@@ -34,6 +34,7 @@ class Seq2seqConfig(Config):
     int_values = Config.int_values + (
         'maxlen_enc', 'maxlen_dec',
         'embedding_dim', 'embedding_dim_enc', 'embedding_dim_dec',
+        'num_layers', 'num_residual',
     )
     __slots__ = tuple(defaults) + int_values + Config.__slots__
 

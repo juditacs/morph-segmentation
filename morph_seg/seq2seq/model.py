@@ -49,17 +49,35 @@ class Seq2seqModel(object):
             [tf.fill([1, tf.shape(self.target)[1]], self.dataset.SOS),
              self.target[:-1, :]], 0)
 
+        self.learning_rate = tf.placeholder(tf.float32, shape=[],
+                                            name="learning_rate")
+        self.dropout = tf.placeholder(tf.float32, shape=[],
+                                     name="dropout")
+        self.max_gradient_norm = tf.placeholder(tf.float32, shape=[],
+                                                name="maxgrad")
+        self.global_step = tf.placeholder(tf.int32, [], name="step")
+
     def create_encoder(self):
         self.create_embedding()
+        self.create_bidirectional_encoder()
+        return
         if self.config.bidirectional:
             self.create_bidirectional_encoder()
         else:
             self.create_unidirectional_encoder()
 
     def create_bidirectional_encoder(self):
-        cell_size = self.config.cell_size
-        fw_cell = self.__create_rnn_block(cell_size)
-        bw_cell = self.__create_rnn_block(cell_size)
+        #cell_size = self.config.cell_size
+        #fw_cell = self.__create_rnn_block(cell_size)
+        #bw_cell = self.__create_rnn_block(cell_size)
+
+        fw_cell = self.create_cell()
+        fw_cell = tf.contrib.rnn.DropoutWrapper(
+            fw_cell, input_keep_prob=(1.0-self.dropout))
+        bw_cell = self.create_cell()
+        bw_cell = tf.contrib.rnn.DropoutWrapper(
+            bw_cell, input_keep_prob=(1.0-self.dropout))
+
         o, e = tf.nn.bidirectional_dynamic_rnn(
             fw_cell, bw_cell, self.encoder_input, dtype=tf.float32,
             sequence_length=self.input_len_enc,
@@ -80,6 +98,34 @@ class Seq2seqModel(object):
         if len(cells) > 1:
             return tf.contrib.rnn.MultiRNNCell(cells)
         return cells[0]
+
+    def create_decoder_cells(self):
+        
+        def create_cell():
+            if self.config.cell_type == 'LSTM':
+                return tf.contrib.rnn.BasicLSTMCell(self.config.cell_size)
+            return tf.contrib.rnn.GRUCell(self.config.cell_size)
+
+        cell_list = []
+        for i in range(self.config.num_layers):
+            cell = tf.contrib.rnn.BasicLSTMCell(self.config.cell_size)
+            cell = tf.contrib.rnn.DropoutWrapper(cell, input_keep_prob=0.2)
+            #if i>= self.config.num_layers-self.config.num_residual:
+                #cell = tf.contrib.rnn.ResidualWrapper(cell)
+            cell_list.append(cell)
+        if len(cell_list) == 1:
+            return cell_list[0]
+        return tf.contrib.rnn.MultiRNNCell(cell_list)
+
+        cell_list = []
+        cell = tf.contrib.rnn.BasicLSTMCell(self.config.cell_size)
+        cell = tf.contrib.rnn.DropoutWrapper(cell=cell, input_keep_prob=0.2)
+        cell_list.append(cell)
+        cell = tf.contrib.rnn.BasicLSTMCell(self.config.cell_size)
+        cell = tf.contrib.rnn.DropoutWrapper(cell=cell, input_keep_prob=0.2)
+        cell_list.append(cell)
+        cell = tf.contrib.rnn.MultiRNNCell(cell_list)
+        return cell
 
     def create_unidirectional_encoder(self):
         cells = self.__create_rnn_block(self.config.cell_size)
@@ -114,14 +160,15 @@ class Seq2seqModel(object):
     def create_simple_decoder(self):
         with tf.variable_scope("decoder") as dec_scope:
             #self.decoder_cell = self.create_cell()
-            cell_list = []
-            cell = tf.contrib.rnn.BasicLSTMCell(self.config.cell_size)
-            cell = tf.contrib.rnn.DropoutWrapper(cell=cell, input_keep_prob=0.2)
-            cell_list.append(cell)
-            cell = tf.contrib.rnn.BasicLSTMCell(self.config.cell_size)
-            cell = tf.contrib.rnn.DropoutWrapper(cell=cell, input_keep_prob=0.2)
-            cell_list.append(cell)
-            cell = tf.contrib.rnn.MultiRNNCell(cell_list)
+            #cell_list = []
+            #cell = tf.contrib.rnn.BasicLSTMCell(self.config.cell_size)
+            #cell = tf.contrib.rnn.DropoutWrapper(cell=cell, input_keep_prob=0.2)
+            #cell_list.append(cell)
+            #cell = tf.contrib.rnn.BasicLSTMCell(self.config.cell_size)
+            #cell = tf.contrib.rnn.DropoutWrapper(cell=cell, input_keep_prob=0.2)
+            #cell_list.append(cell)
+            #cell = tf.contrib.rnn.MultiRNNCell(cell_list)
+            cell = self.create_decoder_cells()
             self.decoder_cell = cell
             dec_init = self.encoder_state
             helper = tf.contrib.seq2seq.TrainingHelper(self.decoder_emb_input,
@@ -244,10 +291,14 @@ class Seq2seqModel(object):
         target_weights = tf.transpose(target_weights)
         self.loss = tf.reduce_sum(crossent * target_weights) / tf.to_float(
             self.config.batch_size)
-        self.create_optimizer()
+        #self.create_optimizer()
+        self.optimizer = tf.train.GradientDescentOptimizer(
+            self.learning_rate / tf.to_float(self.global_step))
         params = tf.trainable_variables()
         gradients = tf.gradients(self.loss, params)
-        self.update = self.optimizer.apply_gradients(zip(gradients, params))
+        clipped_gradients, _ = tf.clip_by_global_norm(
+            gradients, self.max_gradient_norm)
+        self.update = self.optimizer.apply_gradients(zip(clipped_gradients, params))
 
         self.early_cnt = self.config.patience
 
@@ -263,8 +314,8 @@ class Seq2seqModel(object):
             sess.run(tf.global_variables_initializer())
 
             for iter_no in range(int(self.config.max_epochs)):
-                self.run_train_step(sess)
-                self.run_validation(sess)
+                self.run_train_step(sess, iter_no)
+                self.run_validation(sess, iter_no)
                 if self.do_early_stopping():
                     self.result.early_topped = True
                     logging.info('Early stopping at iteration {}, '
@@ -286,7 +337,7 @@ class Seq2seqModel(object):
                     self.run_and_save_test(sess)
                 self.save_everything(sess)
 
-    def run_train_step(self, sess):
+    def run_train_step(self, sess, iter_no):
         batch = self.dataset.get_training_batch()
         feed_dict = {
             self.input_enc: batch.input_enc,
@@ -295,12 +346,16 @@ class Seq2seqModel(object):
             #self.input_len_dec: batch.input_len_dec,
             self.target: batch.target,
             self.target_len: batch.target_len,
+            self.learning_rate: 1.0,
+            self.global_step: iter_no+1,
+            self.max_gradient_norm: 5,
+            self.dropout: .2,
         }
         _, _, loss = sess.run([self.encoder_input, self.update, self.loss],
                               feed_dict=feed_dict)
         self.result.train_loss.append(float(loss))
 
-    def run_validation(self, sess):
+    def run_validation(self, sess, iter_no):
         batch = self.dataset.get_val_batch()
         feed_dict = {
             self.input_enc: batch.input_enc,
@@ -309,6 +364,10 @@ class Seq2seqModel(object):
             #self.input_len_dec: batch.input_len_dec,
             self.target: batch.target,
             self.target_len: batch.target_len,
+            self.learning_rate: 1.0,
+            self.global_step: iter_no+1,
+            self.max_gradient_norm: 5,
+            self.dropout: .2,
         }
         loss = sess.run(self.loss, feed_dict=feed_dict)
         self.result.val_loss.append(float(loss))
@@ -340,6 +399,7 @@ class Seq2seqModel(object):
                 #self.input_len_dec: batch.input_len_dec,
                 self.target: batch.target,
                 self.target_len: batch.target_len,
+                self.dropout: .2,
             }
             sess.run(
                 [self.encoder_input, self.decoder_emb_input], feed_dict=feed_dict)
