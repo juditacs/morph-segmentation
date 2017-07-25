@@ -226,7 +226,7 @@ class CNNConfig(LSTMConfig):
     defaults = copy.deepcopy(LSTMConfig.defaults)
 
     defaults.update({
-        'dropout': 0.8,
+        'dropout': 0.2,
         'layers': [
             {'filters': 30, 'kernel_size': 5, 'strides': 1,
              'padding': 'same', 'activation': 'relu'},
