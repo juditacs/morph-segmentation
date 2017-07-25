@@ -12,6 +12,8 @@ import os
 from six.moves import cPickle
 from datetime import datetime
 import copy
+import yaml
+import logging
 
 import numpy as np
 import pandas as pd
@@ -99,6 +101,21 @@ class Result(DictConvertible):
         'running_time',
     )
 
+    def write_to_yaml(self, filename):
+        d = self.to_dict()
+        ser = {}
+        for k, v in d.items():
+            if isinstance(v, float):
+                ser[k] = float(v)
+            elif isinstance(v, np.float64):
+                ser[k] = float(v)
+            elif isinstance(v, list):
+                ser[k] = [float(i) for i in v]
+            else:
+                ser[k] = v
+        with open(filename, 'w') as f:
+            yaml.dump(ser, f)
+
 
 class SequenceTagger(object):
     def __init__(self, dataset, config):
@@ -169,6 +186,8 @@ class SequenceTagger(object):
             self.log()
 
     def save_model(self):
+        logging.info("Saving everthing to directory {}".format(
+            self.config.model_dir))
         if self.config.model_dir is not None:
             model_fn = os.path.join(self.config.model_dir, 'model.hdf5')
             self.model.save(model_fn)
@@ -177,6 +196,8 @@ class SequenceTagger(object):
                                      'params.cpk')
             with open(params_fn, 'wb') as f:
                 cPickle.dump(d, f)
+            result_fn = os.path.join(self.config.model_dir, 'result.yaml')
+            self.result.write_to_yaml(result_fn)
             config_fn = os.path.join(self.config.model_dir, 'config.yaml')
             self.config.save_to_yaml(config_fn)
 
