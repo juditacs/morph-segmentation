@@ -9,6 +9,7 @@
 import gzip
 import os
 from six.moves import cPickle
+import logging
 
 import numpy as np
 
@@ -35,7 +36,11 @@ class DataSet(object):
                 self.load_data(stream_or_file)
 
     def load_data(self, stream):
-        self.samples = [line.strip().split('\t')[:2] for line in stream]
+        samples = [line.strip().split('\t')[:2] for line in stream]
+        self.samples = [s for s in samples if len(s[0]) == len(s[1])]
+        if len(self.samples) < len(samples):
+            diff = len(samples) - len(self.samples)
+            logging.warning("{} invalid samples were filtered".format(diff))
         self.maxlen = max(len(s[0]) for s in self.samples)
         self.create_matrices()
         self.create_train_test_split()
