@@ -114,11 +114,7 @@ class InferenceData(DataSet):
             setattr(self, param[5:], val)  # strip data.
 
     def load_data(self, stream):
-        try:
-            self.samples = [line.decode('utf8').strip().split('\t')[0]
-                            for line in stream]
-        except AttributeError:
-            self.samples = [line.strip().split('\t')[0] for line in stream]
+        self.samples = [line.strip().split('\t')[0] for line in stream]
         self.maxlen = self.x_shape[1]
         self.create_matrices()
 
