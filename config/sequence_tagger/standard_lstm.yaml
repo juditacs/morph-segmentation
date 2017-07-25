@@ -1,0 +1,7 @@
+model_dir: exps/lstm/standard
+embedding_size: 20
+max_epochs: 100000
+cell_type: GRU
+cell_size: 128
+num_layers: 3
+bidirectional: true
