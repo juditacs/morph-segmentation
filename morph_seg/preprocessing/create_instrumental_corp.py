@@ -12,52 +12,14 @@ import gzip
 from collections import defaultdict
 from sys import stderr
 
+from morph_seg.preprocessing.token import Token
+
 
 def parse_args():
     p = ArgumentParser()
     p.add_argument('input_file', nargs='+', type=str)
     return p.parse_args()
 
-
-class Token(object):
-    def __init__(self, fields):
-        if len(fields) < 4:
-            raise ValueError("Not enough fields for token")
-        self.word = fields[0].lower()
-        self.lemma = fields[1].lower()
-        self.analysis = fields[2]
-        self.full_analysis = json.loads(fields[3])
-
-    def __hash__(self):
-        return hash(self.word)
-
-    def __eq__(self, other):
-        return self.word == other.word
-
-    def __str__(self):
-        return '{}\t{}\t{}\t{}'.format(self.word, self.lemma, self.analysis, self.full_analysis)
-
-    @classmethod
-    def from_line(cls, line):
-        return Token(line.strip().split('\t'))
-
-    def has_low_vowel_lengthening(self):
-        return len(self.lemma) > 2 and \
-                self.lemma not in self.word and \
-                self.lemma[:-1] in self.word
-
-    def is_instrumental(self):
-        return '[Ins]' in self.analysis
-
-    def lemma_change(self):
-        return self.lemma not in self.word
-
-
-predicates = {
-    'low_vowel_lengthening': Token.has_low_vowel_lengthening,
-    'instrumental': Token.is_instrumental,
-    'lemma_change': Token.lemma_change,
-}
 
 
 def collect_corpus_stats(input_files):
@@ -71,7 +33,7 @@ def collect_corpus_stats(input_files):
                     token = Token.from_line(line)
                 except ValueError:
                     continue
-                for typ, pred in predicates.items():
+                for typ, pred in Token.predicates.items():
                     if pred(token) is True:
                         corp[typ].add(token)
                 all_words.add(token)
