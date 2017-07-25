@@ -26,7 +26,7 @@ class DataSet(object):
         if stream_or_file is not None:
             if isinstance(stream_or_file, str):
                 if stream_or_file.endswith('.gz'):
-                    with gzip.open(stream_or_file) as stream:
+                    with gzip.open(stream_or_file, 'rt') as stream:
                         self.load_data(stream)
                 else:
                     with open(stream_or_file) as stream:
