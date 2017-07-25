@@ -65,6 +65,8 @@ class LSTMConfig(Config):
         'bidirectional': True,
         'patience': 0,
         'activation': 'softmax',
+        'cell_type': 'LSTM',
+        'cell_size': 16,
     })
     __slots__ = tuple(defaults.keys()) + (
         'cell_type', 'cell_size', 'embedding_size',
