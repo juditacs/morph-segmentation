@@ -331,11 +331,11 @@ class Seq2seqModel(object):
                 self.save_everything(sess)
 
     def set_learning_rate(self):
-        if len(self.result.train_loss) < 2*self.lr_window:
+        if len(self.result.val_loss) < 2*self.lr_window:
             return
-        prev = sum(self.result.train_loss[-self.lr_window*2:-self.lr_window])
-        cur = sum(self.result.train_loss[-self.lr_window:])
-        if cur >= prev:
+        prev = sum(self.result.val_loss[-self.lr_window*2:-self.lr_window])
+        cur = sum(self.result.val_loss[-self.lr_window:])
+        if 1.1 * cur >= prev:
             logging.info("Decreasing learning rate: {} ---> {}".format(
                 self.lr_value, self.lr_value / 2.0))
             self.lr_value /= 2.0
