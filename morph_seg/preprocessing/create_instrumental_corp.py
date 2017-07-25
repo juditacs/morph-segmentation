@@ -21,7 +21,6 @@ def parse_args():
     return p.parse_args()
 
 
-
 def collect_corpus_stats(input_files):
     corp = defaultdict(set)
     all_words = set()
