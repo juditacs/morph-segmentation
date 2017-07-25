@@ -9,8 +9,7 @@ num_layers: 1
 attention_type: luong
 attention_layer_size: 32
 optimizer: AdamOptimizer
-optimizer_kwargs:
-  learning_rate: 0.1
+start_learning_rate: 0.1
 share_vocab: true
 
 # training options
