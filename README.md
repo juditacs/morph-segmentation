@@ -2,7 +2,10 @@
 
 Experimenting with supervised morphological segmentation as a seq2seq problem.
 
-Currently two supervised models are supported: seq2seq and LSTM (baseline).
+Currently three supervised models are supported: seq2seq, sequence tagger using LSTM/GRU  and character-level CNN.
+
+NOTE: I use the GitHub issue tracker for major bugs and enhancement proposals.
+It is available in my [main repository](https://github.com/juditacs/morph-segmentation/issues).
 
 ## Setup
 
