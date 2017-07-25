@@ -7,7 +7,7 @@
 # Distributed under terms of the MIT license.
 
 from argparse import ArgumentParser
-from sys import stdin
+from sys import stdin, stdout
 
 from morph_seg.seq2seq.config import Seq2seqConfig
 from morph_seg.seq2seq.model import Seq2seqModel
@@ -32,7 +32,7 @@ def main():
     args = parse_args()
     cfg = Seq2seqConfig.load_from_yaml(args.config, train_file=args.train_file,
                                        param_str=args.parameters)
-    print(cfg)
+    cfg.save_to_yaml(stdout)
     dataset = Seq2seqDataSet(cfg, args.train_file)
     model = Seq2seqModel(cfg, dataset)
     model.run_train_test()

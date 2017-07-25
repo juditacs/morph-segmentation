@@ -118,7 +118,7 @@ class Config(object):
             cfg = yaml.load(f)
         return cls(cfg, param_str, **override_params)
 
-    def save_to_yaml(self, filename):
+    def save_to_yaml(self, stream_or_file):
         cfg = {}
         for key in self.__slots__:
             if key == 'train_file':
@@ -128,5 +128,8 @@ class Config(object):
                     cfg['train_file'] = 'stdin'
             else:
                 cfg[key] = getattr(self, key, None)
-        with open(filename, 'w') as f:
-            yaml.dump(cfg, f)
+        if isinstance(stream_or_file, str):
+            with open(stream_or_file, 'w') as f:
+                yaml.dump(cfg, f)
+        else:
+            yaml.dump(cfg, stream_or_file)

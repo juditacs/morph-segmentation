@@ -30,16 +30,20 @@ class Seq2seqConfig(Config):
         'optimizer_kwargs': {},
         'embedding_dim_enc': 0,
         'embedding_dim_dec': 0,
+        'dropout': .2,
+        'start_learning_rate': .1,
+        'learning_rate_window': 100,
     })
     int_values = Config.int_values + (
         'maxlen_enc', 'maxlen_dec',
         'embedding_dim', 'embedding_dim_enc', 'embedding_dim_dec',
         'num_layers', 'num_residual',
+        'learning_rate_window',
     )
     __slots__ = tuple(defaults) + int_values + Config.__slots__
 
     def set_derivable_params(self):
-        super().set_derivable_params()
+        super(self.__class__, self).set_derivable_params()
         if self.embedding_dim_enc == 0:
             self.embedding_dim_enc = self.embedding_dim
         if self.embedding_dim_dec == 0:
@@ -76,4 +80,4 @@ class Seq2seqInferenceConfig(Seq2seqConfig):
         self.__class__.defaults = Seq2seqInferenceConfig.defaults
         cfg_dict['is_training'] = False
         cfg_dict['save_model'] = False
-        super().__init__(cfg_dict, param_str, **kwargs)
+        super(self.__class__, self).__init__(cfg_dict, param_str, **kwargs)

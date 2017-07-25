@@ -52,7 +52,7 @@ class Seq2seqDataSet(DataSet):
         self.target_len = self.len_dec - 1
 
     def featurize(self):
-        super().featurize()
+        super(self.__class__, self).featurize()
         self.create_target()
         self.maxlen_enc = self.data_enc.shape[1]
         self.maxlen_dec = self.data_dec.shape[1]
@@ -112,7 +112,7 @@ class Seq2seqDataSet(DataSet):
 
 class Seq2seqInferenceDataSet(Seq2seqDataSet):
     def __init__(self, config, stream_or_file):
-        super().__init__(config, stream_or_file)
+        super(self.__class__, self).__init__(config, stream_or_file)
         self.vocab_enc.frozen = True
         self.vocab_dec.frozen = True
 
