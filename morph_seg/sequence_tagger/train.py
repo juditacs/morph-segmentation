@@ -61,7 +61,7 @@ class LSTMConfig(Config):
         'optimizer': 'Adam',
         'log_results': False,
         'log_tensorboard': False,
-        'layers': 1,
+        'num_layers': 1,
         'bidirectional': True,
         'patience': 0,
         'activation': 'softmax',
@@ -121,7 +121,7 @@ class SequenceTagger(object):
         emb = Embedding(len(self.dataset.x_vocab),
                         self.config.embedding_size)(input_layer)
         layer = Masking(mask_value=0.)(emb)
-        for _ in range(self.config.layers):
+        for _ in range(self.config.num_layers):
             if self.config.bidirectional:
                 layer = Bidirectional(create_recurrent_layer())(layer)
             else:
