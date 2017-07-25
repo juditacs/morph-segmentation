@@ -15,6 +15,10 @@ from morph_seg.evaluation.morpheme_detection import compute_morph_detection_stat
 correct_input = u"""ab cd	ab cd
 e fgh	e fgh"""
 
+several = u"""ab cd	a b cd
+e fgh	ef gh
+e fgh	e fgh"""
+
 short_almost_correct = u"""ab cd	ab c d"""
 
 input_lendiff = u"""ab cd	aab cd
@@ -24,6 +28,12 @@ input_shorter_output = u"""ab cd	ad"""
 
 
 class MorphDetectionTest(unittest.TestCase):
+
+    def test_long(self):
+        stats = compute_morph_detection_stats(io.StringIO(several))
+        self.assertEqual(stats['fp'], 4)
+        self.assertEqual(stats['fn'],  3)
+        self.assertEqual(stats['tp'], 3)
     def test_correct(self):
         stats = compute_morph_detection_stats(io.StringIO(correct_input))
         self.assertEqual(stats['precision'], 1.0)

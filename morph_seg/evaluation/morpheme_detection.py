@@ -39,15 +39,12 @@ def compute_morph_detection_stats(stream, word_average=False):
 def compute_global_stats(stream):
     stats = defaultdict(int)
     for line in stream:
-        try:
-            gold, guess  = line.decode('utf8').rstrip('\n').split('\t')[:2]
-        except AttributeError:
-            gold, guess = line.rstrip('\n').split('\t')[:2]
+        gold, guess = line.rstrip('\n').split('\t')[:2]
         lmorphs = set(gold.split())
         rmorphs = set(guess.split())
         stats['tp'] += len(lmorphs & rmorphs)
-        stats['fp'] = len(rmorphs - lmorphs)
-        stats['fn'] = len(lmorphs - rmorphs)
+        stats['fp'] += len(rmorphs - lmorphs)
+        stats['fn'] += len(lmorphs - rmorphs)
     compute_summary(stats)
     return stats
 
