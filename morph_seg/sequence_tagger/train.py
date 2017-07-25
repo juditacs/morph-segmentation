@@ -7,7 +7,7 @@
 # Distributed under terms of the MIT license.
 
 from argparse import ArgumentParser
-from sys import stdin
+from sys import stdin, stdout
 import os
 from six.moves import cPickle
 from datetime import datetime
@@ -251,6 +251,7 @@ def main():
         )
         dataset = DataSet(cfg, args.train_file)
         model = SequenceTagger(dataset, cfg)
+    cfg.save_to_yaml(stdout)
     model.run_train_test()
 
 
