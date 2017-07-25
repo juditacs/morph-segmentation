@@ -47,7 +47,7 @@ class Inference(object):
                 if self.decoded[i][j+offset] == 'B':
                     out.append(' ')
                 out.append(s)
-                print(''.join(out).strip())
+            print(''.join(out).strip())
 
 
 def main():
