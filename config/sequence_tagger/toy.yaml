@@ -1,3 +1,5 @@
 model_dir: exps/lstm/toy
 embedding_size: 10
 max_epochs: 5
+cell_type: GRU
+cell_size: 16
