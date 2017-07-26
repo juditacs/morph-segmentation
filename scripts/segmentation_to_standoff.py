@@ -12,6 +12,7 @@ from sys import stdin, stdout
 
 def parse_args():
     p = ArgumentParser()
+    p.add_argument('-d', '--delimiter', type=str, default=' ')
     p.add_argument('--tagging-type', choices=['BE', 'BEMS'], default='BE',
                    help="Use 2 or 4 tag tagset.")
     p.add_argument('--columns', type=str, default="-1",
@@ -26,7 +27,7 @@ def parse_args():
     return p.parse_args()
 
 
-def tag_stream(instream, outstream, tagging_type, columns, conll=False):
+def tag_stream(instream, outstream, tagging_type, columns, delimiter=' ', conll=False):
     columns = set(int(c) for c in columns.split(','))
     for line in instream:
         try:
@@ -38,7 +39,7 @@ def tag_stream(instream, outstream, tagging_type, columns, conll=False):
         for i, field in enumerate(fd):
             if i+1 in columns or (-1 in columns and i == len(fd) - 1):
                 segments = []
-                for segment in field.split(' '):
+                for segment in field.split(delimiter):
                     if tagging_type == 'BE':
                         segments.append('B{}'.format('E' * (len(segment)-1)))
                     elif tagging_type == 'BEMS':
@@ -79,6 +80,7 @@ def write_sample_one_line(output_fields, outstream):
 def main():
     args = parse_args()
     tag_stream(stdin, stdout, tagging_type=args.tagging_type, columns=args.columns,
+               delimiter=args.delimiter,
                conll=args.conll)
 
 if __name__ == '__main__':
