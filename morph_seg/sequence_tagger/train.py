@@ -245,7 +245,8 @@ class CNNConfig(LSTMConfig):
         'layers': [
             {'filters': 30, 'kernel_size': 5, 'strides': 1,
              'padding': 'same', 'activation': 'relu'},
-        ]
+        ],
+        'lstm_layers': 1
     })
     __slots__ = tuple(defaults.keys())
 
@@ -263,7 +264,8 @@ class CNNTagger(SequenceTagger):
         for lparams in self.config.layers:
             layer = Conv1D(**lparams)(layer)
 
-        layer = LSTM(self.dataset.maxlen, return_sequences=True)(layer)
+        for _ in range(int(self.config.lstm_layers)):
+            layer = LSTM(int(self.config.cell_size), return_sequences=True)(layer)
         layer = TimeDistributed(Dense(len(self.dataset.y_vocab),
                                       activation='softmax'))(layer)
         self.model = Model(inputs=input_layer, outputs=layer)
