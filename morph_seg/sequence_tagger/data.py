@@ -37,7 +37,8 @@ class DataSet(object):
 
     def load_data(self, stream):
         samples = [line.strip().split('\t')[:2] for line in stream]
-        self.samples = [s for s in samples if len(s[0]) == len(s[1])]
+        self.samples = [s for s in samples if len(s) == 2 and
+                        len(s[0]) == len(s[1])]
         if len(self.samples) < len(samples):
             diff = len(samples) - len(self.samples)
             logging.warning("{} invalid samples were filtered".format(diff))
