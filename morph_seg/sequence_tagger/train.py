@@ -48,7 +48,8 @@ class DictConvertible(object):
     __slots__ = tuple()
 
     def to_dict(self):
-        return {param: getattr(self, param, None) for param in self.__slots__}
+        return {param: getattr(self, param, None)
+                for param in self.__class__.__slots__}
 
 
 class LSTMConfig(Config):
@@ -69,10 +70,9 @@ class LSTMConfig(Config):
         'activation': 'softmax',
         'cell_type': 'LSTM',
         'cell_size': 16,
+        'embedding_size': 15,
     })
-    __slots__ = tuple(defaults.keys()) + (
-        'cell_type', 'cell_size', 'embedding_size',
-    )
+    __slots__ = tuple(defaults.keys())
 
     def set_derivable_params(self):
         super().set_derivable_params()
