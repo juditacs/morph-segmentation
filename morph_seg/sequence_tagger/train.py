@@ -134,7 +134,7 @@ class SequenceTagger(object):
                 self.config.cell_type))
 
         input_layer = Input(batch_shape=(None, self.dataset.maxlen),
-                            dtype='int8')
+                            dtype='int32')
         emb = Embedding(len(self.dataset.x_vocab),
                         self.config.embedding_size)(input_layer)
         layer = Masking(mask_value=0.)(emb)
@@ -239,7 +239,7 @@ class CNNTagger(SequenceTagger):
 
     def define_model(self):
         input_layer = Input(batch_shape=(None, self.dataset.maxlen),
-                            dtype='int8')
+                            dtype='int32')
         layer = Embedding(len(self.dataset.x_vocab),
                           self.config.embedding_size)(input_layer)
 
