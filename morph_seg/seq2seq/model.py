@@ -71,11 +71,22 @@ class Seq2seqModel(object):
 
     def create_bidirectional_encoder(self):
         with tf.variable_scope("encoder"):
+
+            def create_cell(cell_size=None):
+                if cell_size is None:
+                    cell_size = self.config.cell_size
+                    if self.config.cell_type == 'GRU':
+                        cell = tf.contrib.rnn.GRUCell(cell_size)
+                    else:
+                        cell = tf.contrib.rnn.BasicLSTMCell(cell_size)
+                        cell = tf.contrib.rnn.DropoutWrapper(cell, input_keep_prob=1.0-self.dropout)
+                        return cell
+
             def create_stacked_layers(cell_size=None):
                 cell_size = self.config.cell_size if cell_size is None else cell_size
                 cell_list = []
                 for i in range(1):
-                    cell = self.create_cell(scope="encoder")
+                    cell = create_cell()
                     if i>= self.config.num_layers-self.config.num_residual:
                         cell = tf.contrib.rnn.ResidualWrapper(cell)
                     cell_list.append(cell)
@@ -93,43 +104,6 @@ class Seq2seqModel(object):
             )
             self.encoder_outputs = tf.concat(o, -1)
             self.encoder_state = e
-
-    def __create_rnn_block(self, cell_size):
-        # FIXME deprecated
-        num_residual = self.config.num_residual
-        cells = []
-        for i in range(int(self.config.num_layers)):
-            if i >= self.config.num_layers-num_residual:
-                cells.append(tf.contrib.rnn.ResidualWrapper(
-                    self.create_cell(cell_size)))
-            else:
-                cells.append(self.create_cell(cell_size))
-        if len(cells) > 1:
-            return tf.contrib.rnn.MultiRNNCell(cells)
-        return cells[0]
-
-    def create_decoder_cells(self):
-        # FIXME deprecated
-        cell_list = []
-        for i in range(self.config.num_layers):
-            cell = self.create_cell()
-            #cell = tf.contrib.rnn.BasicLSTMCell(self.config.cell_size)
-            #cell = tf.contrib.rnn.DropoutWrapper(cell, input_keep_prob=0.2)
-            if i>= self.config.num_layers-self.config.num_residual:
-                cell = tf.contrib.rnn.ResidualWrapper(cell)
-            cell_list.append(cell)
-        if len(cell_list) == 1:
-            return cell_list[0]
-        return tf.contrib.rnn.MultiRNNCell(cell_list)
-
-    def create_unidirectional_encoder(self):
-        # FIXME deprecated
-        cells = self.__create_rnn_block(self.config.cell_size)
-        o, e = tf.nn.dynamic_rnn(
-            cells, self.encoder_input, dtype=tf.float32, sequence_length=self.input_len_enc
-        )
-        self.encoder_outputs = o
-        self.encoder_state = e
 
     def create_embedding(self):
         with tf.variable_scope("embedding"):
@@ -155,11 +129,21 @@ class Seq2seqModel(object):
 
     def create_simple_decoder(self):
         with tf.variable_scope("decoder") as dec_scope:
-            self.decoder_cell = self.create_cell()
+
+            def create_cell(cell_size=None):
+                if cell_size is None:
+                    cell_size = self.config.cell_size
+                    if self.config.cell_type == 'GRU':
+                        cell = tf.contrib.rnn.GRUCell(cell_size)
+                    else:
+                        cell = tf.contrib.rnn.BasicLSTMCell(cell_size)
+                        cell = tf.contrib.rnn.DropoutWrapper(cell, input_keep_prob=1.0-self.dropout)
+                        return cell
+
             cell_list = []
-            cell = self.create_cell(scope="decoder")
+            cell = create_cell()
             cell_list.append(cell)
-            cell = self.create_cell(scope="decoder")
+            cell = create_cell()
             cell_list.append(cell)
             cell = tf.contrib.rnn.MultiRNNCell(cell_list)
             self.decoder_cell = cell
@@ -178,6 +162,7 @@ class Seq2seqModel(object):
             self.logits = self.output_proj(outputs.rnn_output)
 
     def create_attention_cell(self):
+        # FIXME deprecated
         self.decoder_cell = self.create_cell()
         self.create_attention()
         self.decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
@@ -199,6 +184,17 @@ class Seq2seqModel(object):
 
     def create_attention_decoder(self):
         with tf.variable_scope("decoder") as scope:
+
+            def create_cell(cell_size=None):
+                if cell_size is None:
+                    cell_size = self.config.cell_size
+                    if self.config.cell_type == 'GRU':
+                        cell = tf.contrib.rnn.GRUCell(cell_size)
+                    else:
+                        cell = tf.contrib.rnn.BasicLSTMCell(cell_size)
+                        cell = tf.contrib.rnn.DropoutWrapper(cell, input_keep_prob=1.0-self.dropout)
+                        return cell
+
             attention_states = tf.transpose(self.encoder_outputs, [1, 0, 2])
             if self.config.attention_type == 'luong':
                 self.attention_mechanism = tf.contrib.seq2seq.LuongAttention(
@@ -217,9 +213,9 @@ class Seq2seqModel(object):
                 self.config.attention_type))
 
             cell_list = []
-            cell = self.create_cell(scope="decoder")
+            cell = create_cell()
             cell_list.append(cell)
-            cell = self.create_cell(scope="decoder")
+            cell = create_cell()
             cell_list.append(cell)
             cell = tf.contrib.rnn.MultiRNNCell(cell_list)
 
@@ -315,7 +311,7 @@ class Seq2seqModel(object):
                                  'valid loss: {}'.format(
                                      iter_no+1, self.result.val_loss[-1]))
                     break
-                if iter_no % 100 == 99:
+                if iter_no % 10 == 9:
                     logging.info('Iter {}, train loss: {}, val loss: {}'.format(
                         iter_no+1, self.result.train_loss[-1],
                         self.result.val_loss[-1]))
@@ -335,10 +331,13 @@ class Seq2seqModel(object):
             return
         prev = sum(self.result.val_loss[-self.lr_window*2:-self.lr_window])
         cur = sum(self.result.val_loss[-self.lr_window:])
-        if 1.1 * cur >= prev:
-            logging.info("Decreasing learning rate: {} ---> {}".format(
-                self.lr_value, self.lr_value / 2.0))
+        if cur >= prev:
+            old = self.lr_value
             self.lr_value /= 2.0
+            if self.lr_value < self.config.min_learning_rate:
+                self.lr_value = self.config.min_learning_rate
+            logging.info("Decreasing learning rate: {} ---> {}".format(
+                old, self.lr_value))
 
     def run_train_step(self, sess, iter_no):
         batch = self.dataset.get_training_batch()
@@ -348,7 +347,7 @@ class Seq2seqModel(object):
             self.target: batch.target,
             self.target_len: batch.target_len,
             self.learning_rate: self.lr_value,
-            self.max_gradient_norm: 5,
+            self.max_gradient_norm: 1,
             self.dropout: .2,
         }
         _, _, loss = sess.run([self.encoder_input, self.update, self.loss],
@@ -362,9 +361,7 @@ class Seq2seqModel(object):
             self.input_len_enc: batch.input_len_enc,
             self.target: batch.target,
             self.target_len: batch.target_len,
-            self.learning_rate: self.lr_value,
-            self.max_gradient_norm: 5,
-            self.dropout: .2,
+            self.dropout: 0,
         }
         loss = sess.run(self.loss, feed_dict=feed_dict)
         self.result.val_loss.append(float(loss))
@@ -372,6 +369,8 @@ class Seq2seqModel(object):
     def do_early_stopping(self):
         if len(self.result.val_loss) < self.config.patience:
             return False
+        if (self.result.val_loss[-1] > 0) is False and (self.result.val_loss[-1] < 0) is False:
+            return True
         do_stop = False
         try:
             if abs(self.result.val_loss[-1] - self.result.val_loss[-2]) \
