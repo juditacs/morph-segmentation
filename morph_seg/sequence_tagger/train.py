@@ -149,26 +149,41 @@ class SequenceTagger(object):
         self.model.compile(optimizer=self.config.optimizer,
                            loss='categorical_crossentropy')
 
-    def run_train_test(self):
+    def run_train(self):
         callbacks = [EarlyStopping(monitor='val_loss',
                                    patience=self.config.patience)]
         if self.config.log_tensorboard:
             callbacks.append(TensorBoard(log_dir=self.config.log_dir,
                                          histogram_freq=1))
         start = datetime.now()
-        history = self.model.fit(
-            self.dataset.x_train, self.dataset.y_train,
-            epochs=self.config.max_epochs,
-            batch_size=self.config.batch_size,
-            validation_split=0.2,
-            callbacks=callbacks,
-            verbose=1,
-        )
+        if hasattr(self.dataset, 'x_dev'):
+            val_x = self.dataset.x_dev
+            val_y = self.dataset.y_dev
+            history = self.model.fit(
+                self.dataset.x_train, self.dataset.y_train,
+                epochs=self.config.max_epochs,
+                batch_size=self.config.batch_size,
+                validation_data=(val_x, val_y),
+                callbacks=callbacks,
+                verbose=1,
+            )
+        else:
+            history = self.model.fit(
+                self.dataset.x_train, self.dataset.y_train,
+                epochs=self.config.max_epochs,
+                batch_size=self.config.batch_size,
+                validation_split=0.2,
+                callbacks=callbacks,
+                verbose=1,
+            )
         self.result.running_time = (
             datetime.now() - start
         ).total_seconds()
         self.result.val_loss = history.history['val_loss']
         self.result.train_loss = history.history['loss']
+
+    def run_train_test(self):
+        self.run_train()
         self.evaluate()
         self.save_model()
 
