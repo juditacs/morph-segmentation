@@ -136,3 +136,77 @@ class InferenceData(DataSet):
         for sample in labels:
             decoded.append([self.inv_vocab[s] for s in sample])
         return decoded
+
+
+class TrainValidData(DataSet):
+    def __init__(self, cfg, file_pre):
+        self.config = cfg
+        self.x_vocab = {'PAD': 0}
+        self.y_vocab = {'PAD': 0}
+        self.train = self.load_data(file_pre + '.train')
+        self.dev = self.load_data(file_pre + '.dev')
+        self.create_matrices()
+
+    def load_data(self, path):
+        with open(path) as stream:
+            samples = [line.strip().split('\t')[:2] for line in stream]
+        samples = [s for s in samples if len(s) == 2 and
+                   len(s[0]) == len(s[1])]
+        return samples
+
+    def create_matrices(self):
+        max1 = max(len(s[0]) for s in self.train)
+        max2 = max(len(s[0]) for s in self.dev)
+        self.maxlen = max((max1, max2))
+        labels = set()
+        for s in self.train:
+            labels |= set(s[1])
+        for s in self.dev:
+            labels |= set(s[1])
+        self.n_labels = len(labels) + 1
+
+        self.x_train = []
+        self.y_train = []
+        for s in self.train:
+            sample = [self.x_vocab.setdefault(c, len(self.x_vocab))
+                      for c in s[0]]
+            self.x_train.append(self.pad_sample(sample))
+            sample = [self.y_vocab.setdefault(c, len(self.y_vocab))
+                      for c in s[1]]
+            padded = self.pad_sample(sample)
+            self.y_train.append(to_categorical(padded,
+                                               num_classes=self.n_labels))
+
+        self.y_dev = []
+        self.x_dev = []
+        for s in self.dev:
+            sample = [self.x_vocab.setdefault(c, len(self.x_vocab))
+                      for c in s[0]]
+            self.x_dev.append(self.pad_sample(sample))
+            sample = [self.y_vocab.setdefault(c, len(self.y_vocab))
+                      for c in s[1]]
+            padded = self.pad_sample(sample)
+            self.y_dev.append(to_categorical(padded,
+                                             num_classes=self.n_labels))
+
+        self.x_train = np.array(self.x_train)
+        self.y_train = np.array(self.y_train)
+        self.x_dev = np.array(self.x_dev)
+        self.y_dev = np.array(self.y_dev)
+
+        print(self.x_train.shape)
+        print(self.x_dev.shape)
+        print(self.y_train.shape)
+        print(self.y_dev.shape)
+
+    def to_dict(self):
+        """Create statistics dictionary."""
+        d = {}
+        # shapes
+        d['x_train_shape'] = self.x_train.shape
+        d['x_dev_shape'] = self.x_train.shape
+        d['y_train_shape'] = self.y_dev.shape
+        d['y_dev_shape'] = self.y_dev.shape
+        for attr in ('n_labels', 'x_vocab', 'y_vocab'):
+            d[attr] = getattr(self, attr)
+        return d
