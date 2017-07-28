@@ -1,5 +1,7 @@
 # Morphological segmentation
 
+My final presentation is available as a Jupyter notebook [here](https://github.com/juditacs/morph-segmentation/blob/master/notebooks/final_presentation/presentation.ipynb).
+
 Experimenting with supervised morphological segmentation as a seq2seq problem.
 
 Currently three supervised models are supported: seq2seq, sequence tagger using LSTM/GRU  and character-level CNN.
