@@ -265,7 +265,8 @@ class CNNTagger(SequenceTagger):
             layer = Conv1D(**lparams)(layer)
 
         for _ in range(int(self.config.lstm_layers)):
-            layer = LSTM(int(self.config.cell_size), return_sequences=True)(layer)
+            layer = LSTM(int(self.config.cell_size),
+                         return_sequences=True)(layer)
         layer = TimeDistributed(Dense(len(self.dataset.y_vocab),
                                       activation='softmax'))(layer)
         self.model = Model(inputs=input_layer, outputs=layer)
