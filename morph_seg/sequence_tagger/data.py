@@ -116,7 +116,10 @@ class InferenceData(DataSet):
 
     def load_data(self, stream):
         self.samples = [line.strip().split('\t')[0] for line in stream]
-        self.maxlen = self.x_shape[1]
+        try:
+            self.maxlen = self.x_shape[1]
+        except AttributeError:
+            self.maxlen = self.x_train_shape[1]
         self.create_matrices()
 
     def create_matrices(self):
@@ -136,6 +139,33 @@ class InferenceData(DataSet):
         for sample in labels:
             decoded.append([self.inv_vocab[s] for s in sample])
         return decoded
+
+
+class WindowInferenceData(InferenceData):
+    def __init__(self, model_dir, stream_or_file, window, step):
+        self.window = window
+        self.step = step
+        super(self.__class__, self).__init__(model_dir, stream_or_file)
+
+    def load_data(self, stream):
+        samples = [line.strip().split('\t')[0] for line in stream]
+        mapping = []
+        windows = []
+        for s in samples:
+            mapping.append(len(windows))
+            if len(s) <= self.window:
+                windows.append(s)
+                continue
+            for i in range(0, len(s)-self.window, self.step):
+                windows.append(s[i:i+self.window])
+        self.samples = windows
+        self.orig_samples = samples
+        self.mapping = mapping
+        try:
+            self.maxlen = self.x_shape[1]
+        except AttributeError:
+            self.maxlen = self.x_train_shape[1]
+        self.create_matrices()
 
 
 class TrainValidData(DataSet):

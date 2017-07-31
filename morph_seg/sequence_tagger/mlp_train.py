@@ -49,6 +49,7 @@ def main():
         model = SequenceTagger(dataset, cfg)
     cfg.save_to_yaml(stdout)
     model.run_train()
+    model.save_model()
 
 
 if __name__ == '__main__':
