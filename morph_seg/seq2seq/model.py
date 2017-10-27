@@ -161,21 +161,6 @@ class Seq2seqModel(object):
                                             name="output_proj")
             self.logits = self.output_proj(outputs.rnn_output)
 
-    def create_attention_cell(self):
-        # FIXME deprecated
-        self.decoder_cell = self.create_cell()
-        self.create_attention()
-        self.decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
-            self.decoder_cell,
-            self.attention,
-            attention_layer_size=self.config.attention_layer_size,
-            alignment_history=False,
-        )
-        dec_init = self.decoder_cell.zero_state(
-            tf.shape(self.decoder_emb_input)[1],
-            tf.float32).clone(cell_state=self.encoder_state)
-        return dec_init
-
     def create_decoder(self):
         if self.config.attention_type is None:
             self.create_simple_decoder()
