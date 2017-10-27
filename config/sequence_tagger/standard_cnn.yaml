@@ -1,4 +1,11 @@
-model_dir: exps/lstm/standard
+model_dir: exps/cnn/standard
 embedding_size: 20
-max_epochs: 100000
+max_epochs: 100
 cell_type: GRU
+patience: 10
+lstm_layers: 2
+cell_size: 128
+batch_size: 128
+layers:
+  - {filters: 200, kernel_size: 5, strides: 1, padding: same, activation: sigmoid}
+  - {filters: 200, kernel_size: 5, strides: 1, padding: same, activation: sigmoid}
