@@ -33,6 +33,7 @@ class Seq2seqConfig(Config):
         'dropout': .2,
         'start_learning_rate': .1,
         'learning_rate_window': 100,
+        'min_learning_rate': 1e-4,
     })
     int_values = Config.int_values + (
         'maxlen_enc', 'maxlen_dec',
