@@ -52,7 +52,7 @@ class DictConvertible(object):
                 for param in self.__class__.__slots__}
 
 
-class LSTMConfig(Config):
+class LSTMConfig(Config, DictConvertible):
 
     defaults = copy.deepcopy(Config.defaults)
 
@@ -172,7 +172,7 @@ class SequenceTagger(object):
                 self.dataset.x_train, self.dataset.y_train,
                 epochs=self.config.max_epochs,
                 batch_size=self.config.batch_size,
-                validation_split=0.2,
+                validation_split=0.1,
                 callbacks=callbacks,
                 verbose=1,
             )
@@ -180,7 +180,9 @@ class SequenceTagger(object):
             datetime.now() - start
         ).total_seconds()
         self.result.val_loss = history.history['val_loss']
+        logging.info("Val loss: {}".format(self.result.val_loss[-1]))
         self.result.train_loss = history.history['loss']
+        logging.info("Train loss: {}".format(self.result.train_loss[-1]))
 
     def run_train_test(self):
         self.run_train()
@@ -188,15 +190,26 @@ class SequenceTagger(object):
         self.save_model()
 
     def evaluate(self):
-        res = self.model.evaluate(self.dataset.x_test, self.dataset.y_test)
-        self.result.test_loss = res
-        y_proba = self.model.predict(self.dataset.x_test)
+        self.result.train_loss = \
+            self.model.evaluate(self.dataset.x_train, self.dataset.y_train)
+        y_proba = self.model.predict(self.dataset.x_train)
         y_predicted = np.argmax(y_proba, axis=-1)
-        y_test = np.argmax(self.dataset.y_test, axis=-1)
-        mask = (y_test != 0)  # padding mask
+        y_train = np.argmax(self.dataset.y_train, axis=-1)
+        mask = (y_train != 0)  # padding mask
         real_char = np.sum(mask)  # exclude padding
-        correct = np.sum((np.equal(y_predicted, y_test) & mask))
-        self.result.test_acc = correct / float(real_char)
+        correct = np.sum((np.equal(y_predicted, y_train) & mask))
+        self.result.train_acc = correct / float(real_char)
+        logging.info("Train accuracy: {}".format(self.result.train_acc))
+        if self.dataset.x_test is not None:
+            self.result.test_loss = \
+                self.model.evaluate(self.dataset.x_test, self.dataset.y_test)
+            y_proba = self.model.predict(self.dataset.x_test)
+            y_predicted = np.argmax(y_proba, axis=-1)
+            y_test = np.argmax(self.dataset.y_test, axis=-1)
+            mask = (y_test != 0)  # padding mask
+            real_char = np.sum(mask)  # exclude padding
+            correct = np.sum((np.equal(y_predicted, y_test) & mask))
+            self.result.test_acc = correct / float(real_char)
         if self.config.log_results is True:
             self.log()
 
@@ -230,6 +243,8 @@ class SequenceTagger(object):
         d = {}
         for param, val in self.dataset.to_dict().items():
             d['data.{}'.format(param)] = val
+        for param, val in self.config.to_dict().items():
+            d['config.{}'.format(param)] = val
         for param, val in self.result.to_dict().items():
             d['result.{}'.format(param)] = val
         d['model.json'] = self.model.to_json()
