@@ -74,15 +74,20 @@ class DataSet(object):
         self.y = np.array(y)
 
     def create_train_test_split(self):
-        shuf_idx = list(range(self.x.shape[0]))
-        np.random.shuffle(shuf_idx)
-        train_split = self.x.shape[0] // 10 * 9
-        self.train_indices = shuf_idx[:train_split]
-        self.test_indices = shuf_idx[train_split:]
-        self.x_train = self.x[self.train_indices]
-        self.y_train = self.y[self.train_indices]
-        self.x_test = self.x[self.test_indices]
-        self.y_test = self.y[self.test_indices]
+        if self.config.test_size > 0:
+            shuf_idx = list(range(self.x.shape[0]))
+            np.random.shuffle(shuf_idx)
+            test_size = self.config.test_size
+            self.train_indices = shuf_idx[:-test_size]
+            self.test_indices = shuf_idx[-test_size:]
+            self.x_train = self.x[self.train_indices]
+            self.y_train = self.y[self.train_indices]
+            self.x_test = self.x[self.test_indices]
+            self.y_test = self.y[self.test_indices]
+        else:
+            self.x_train = self.x
+            self.y_train = self.y
+            self.x_test = self.y_test = None
 
     def to_dict(self):
         """Create statistics dictionary."""
@@ -91,9 +96,8 @@ class DataSet(object):
         d['x_shape'] = self.x.shape
         d['y_shape'] = self.y.shape
         d['x_train_shape'] = self.x_train.shape
-        d['x_train_shape'] = self.x_train.shape
-        d['y_test_shape'] = self.y_test.shape
-        d['y_test_shape'] = self.y_test.shape
+        if self.y_test:
+            d['y_test_shape'] = self.y_test.shape
         for attr in ('n_labels', 'x_vocab', 'y_vocab'):
             d[attr] = getattr(self, attr)
         return d
